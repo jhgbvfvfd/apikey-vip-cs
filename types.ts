@@ -4,6 +4,7 @@ export interface ApiKey {
   tokens_remaining: number;
   status: 'active' | 'inactive';
   createdAt: string;
+  banLocked?: boolean;
 }
 
 export interface CreditHistoryEntry {
@@ -26,6 +27,7 @@ export interface Agent {
   creditHistory?: CreditHistoryEntry[];
   user?: null; // Added for future use
   status?: 'active' | 'suspended' | 'banned';
+  banLocked?: boolean;
   ipBanEnabled?: boolean;
   parentId?: string;
   welcomeAcknowledged?: boolean;

@@ -6,7 +6,7 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import CountdownDisplay from '../components/ui/CountdownDisplay';
-import { addAgent, updateAgent, deleteAgent } from '../services/firebaseService';
+import { addAgent, updateAgent, deleteAgent, setAgentBanState } from '../services/firebaseService';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { formatCredits, hasUnlimitedCredits } from '../utils/credits';
 
@@ -176,10 +176,15 @@ const AgentAgentsPage: React.FC = () => {
   };
 
   const handleBan = async (agent: Agent) => {
-    const updated = { ...agent, status: agent.status === 'banned' ? 'active' : 'banned' };
-    await updateAgent(updated);
-    refreshData();
-    notify(agent.status === 'banned' ? 'ปลดแบนแล้ว' : 'แบนตัวแทนแล้ว');
+    const targetBanState = agent.status !== 'banned';
+    try {
+      await setAgentBanState(agent.id, targetBanState);
+      refreshData();
+      notify(targetBanState ? 'แบนตัวแทนแล้ว' : 'ปลดแบนแล้ว');
+    } catch (error) {
+      console.error('Failed to update downstream agent ban state:', error);
+      notify('ไม่สามารถอัปเดตสถานะการแบนได้', 'error');
+    }
   };
 
   const handleDelete = async (agent: Agent) => {

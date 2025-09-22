@@ -6,6 +6,7 @@ interface ApiKey {
   key: string;
   tokens_remaining: number;
   status: 'active' | 'inactive';
+  banLocked?: boolean;
 }
 
 interface AgentRecord {

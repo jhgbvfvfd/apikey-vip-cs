@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useData, useSettings } from '../App';
 import { Agent, Platform, CreditHistoryEntry, ApiKey } from '../types';
-import { addAgent, updateAgent, deleteAgent } from '../services/firebaseService';
+import { addAgent, updateAgent, deleteAgent, setAgentBanState } from '../services/firebaseService';
 import Button from '../components/ui/Button';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
@@ -138,7 +138,9 @@ const ManageKeysModal: React.FC<{
         const keysForPlatform = [...(updatedAgent.keys[platformId] || [])];
         const keyIndex = keysForPlatform.findIndex(k => k.key === keyToUpdate.key);
         if (keyIndex > -1) {
-            keysForPlatform[keyIndex] = { ...keysForPlatform[keyIndex], status: keyToUpdate.status === 'active' ? 'inactive' : 'active' };
+            const toggledStatus = keyToUpdate.status === 'active' ? 'inactive' : 'active';
+            const { banLocked: _banLocked, ...keyWithoutLock } = { ...keysForPlatform[keyIndex], status: toggledStatus };
+            keysForPlatform[keyIndex] = keyWithoutLock as ApiKey;
             updatedAgent.keys[platformId] = keysForPlatform;
             await onUpdateAgent(updatedAgent);
             notify(keyToUpdate.status === 'active' ? 'ระงับคีย์แล้ว' : 'เปิดใช้งานคีย์แล้ว');
@@ -370,10 +372,15 @@ const AgentsPage: React.FC = () => {
     const filteredAgents = agents.filter(a => a.username.toLowerCase().includes(query.toLowerCase()));
 
     const handleBanAgent = async (agent: Agent) => {
-        const updatedAgent = { ...agent, status: agent.status === 'banned' ? 'active' : 'banned' };
-        await updateAgent(updatedAgent);
-        refreshData();
-        notify(updatedAgent.status === 'banned' ? 'แบนตัวแทนแล้ว' : 'ปลดแบนตัวแทนแล้ว');
+        const targetBanState = agent.status !== 'banned';
+        try {
+            await setAgentBanState(agent.id, targetBanState);
+            refreshData();
+            notify(targetBanState ? 'แบนตัวแทนแล้ว' : 'ปลดแบนตัวแทนแล้ว');
+        } catch (error) {
+            console.error('Failed to update agent ban state:', error);
+            notify('ไม่สามารถอัปเดตสถานะการแบนได้', 'error');
+        }
     };
     const handleDeleteAgent = async (agent: Agent) => {
         await deleteAgent(agent.id);
