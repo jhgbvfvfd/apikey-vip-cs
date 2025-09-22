@@ -12,6 +12,7 @@ import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import CountdownDisplay from '../components/ui/CountdownDisplay';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { formatCredits, hasUnlimitedCredits } from '../utils/credits';
+import LoadingState from '../components/ui/LoadingState';
 
 const DEFAULT_NEW_AGENT_CREDITS = 1000;
 const DEFAULT_CREDIT_INCREMENT = 100;
@@ -413,7 +414,13 @@ const AgentsPage: React.FC = () => {
                 </div>
             </div>
 
-            {loading ? <p>กำลังโหลดข้อมูลตัวแทน...</p> : (
+            {loading ? (
+                <LoadingState
+                    label="กำลังเตรียมข้อมูลตัวแทน"
+                    helperText="ระบบกำลังอัปเดตรายชื่อตัวแทนและสถานะล่าสุด"
+                    className="mx-auto my-16 max-w-2xl"
+                />
+            ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredAgents.map(u => (
                         <AgentCard

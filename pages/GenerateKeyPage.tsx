@@ -8,6 +8,7 @@ import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import PlatformTabs from '../components/ui/PlatformTabs';
+import LoadingState from '../components/ui/LoadingState';
 import {
     ClipboardIcon,
     CheckIcon,
@@ -303,9 +304,25 @@ const GenerateKeyPage: React.FC = () => {
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr><td colSpan={5} className="text-center p-4">กำลังโหลดคีย์...</td></tr>
+                                        <tr>
+                                            <td colSpan={5} className="p-6">
+                                                <LoadingState
+                                                    compact
+                                                    label="กำลังโหลดคีย์"
+                                                    helperText="กำลังรวบรวมรายการคีย์ที่มีอยู่"
+                                                    className="mx-auto max-w-xs"
+                                                />
+                                            </td>
+                                        </tr>
                                     ) : filteredKeys.length > 0 ? (
-                                        filteredKeys.map(k => <KeyRow key={k.id} apiKey={k} onUpdateStatus={handleUpdateKeyStatus} onDelete={confirmDeleteKey} />)
+                                        filteredKeys.map(k => (
+                                            <KeyRow
+                                                key={k.id}
+                                                apiKey={k}
+                                                onUpdateStatus={handleUpdateKeyStatus}
+                                                onDelete={confirmDeleteKey}
+                                            />
+                                        ))
                                     ) : (
                                         <tr><td colSpan={5} className="text-center p-6 text-slate-500">ยังไม่มีการสร้างคีย์ทั่วไป</td></tr>
                                     )}

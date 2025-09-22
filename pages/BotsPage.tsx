@@ -7,6 +7,7 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
+import LoadingState from '../components/ui/LoadingState';
 
 const BotsPage: React.FC = () => {
     const { bots, loading, refreshData } = useData();
@@ -89,7 +90,13 @@ const BotsPage: React.FC = () => {
             {!isAgent && <Button onClick={() => { setEditingBot(null); setNewBot({ name: '', url: '', tokenCost: 1 }); setIsModalOpen(true); }}>+ เพิ่มบอท</Button>}
         </div>
 
-            {loading ? <p>กำลังโหลดบอท...</p> : (
+            {loading ? (
+                <LoadingState
+                    label="กำลังเรียกข้อมูลบอท"
+                    helperText="เตรียมพร้อมเครื่องมือบอทล่าสุด โปรดรอสักครู่"
+                    className="mx-auto my-12 max-w-md"
+                />
+            ) : (
                 <div className="space-y-4">
                     {bots.map(bot => <BotCard key={bot.id} bot={bot} />)}
                     {bots.length === 0 && <p className="text-center p-10 text-slate-500">ยังไม่มีบอทในไดเรกทอรี</p>}
