@@ -7,7 +7,6 @@ import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import CountdownDisplay from '../components/ui/CountdownDisplay';
 import { addAgent, updateAgent, deleteAgent, setAgentBanState } from '../services/firebaseService';
-import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { formatCredits, hasUnlimitedCredits } from '../utils/credits';
 
 const MAX_CREDIT_TRANSFER = 1_000_000;
@@ -21,7 +20,7 @@ const AgentAgentsPage: React.FC = () => {
   const myAgents = agents.filter(a => a.parentId === parent.id);
 
   const [isAddModal, setAddModal] = useState(false);
-  const [newAgent, setNewAgent] = useState({ username: '', password: '', credits: 100, expiresAt: '', unlimitedCredits: false });
+  const [newAgent, setNewAgent] = useState({ username: '', password: '', credits: 100, expiresAt: '' });
   const [selected, setSelected] = useState<Agent | null>(null);
   const [creditsToAdd, setCreditsToAdd] = useState(100);
   const [isCreditModal, setCreditModal] = useState(false);
@@ -34,21 +33,18 @@ const AgentAgentsPage: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const initialCredits = Number(newAgent.credits);
-    const isUnlimited = newAgent.unlimitedCredits;
     let expiresAtIso: string | undefined;
-    if (!isUnlimited) {
-      if (!Number.isFinite(initialCredits) || initialCredits <= 0) {
-        notify('กรุณากรอกเครดิตเริ่มต้นมากกว่า 0', 'error');
-        return;
-      }
-      if (initialCredits > MAX_CREDIT_TRANSFER) {
-        notify(`โอนเครดิตได้ไม่เกิน ${MAX_CREDIT_TRANSFER.toLocaleString('th-TH')} ต่อครั้ง`, 'error');
-        return;
-      }
-      if (!parentUnlimited && parent.credits < initialCredits) {
-        notify('เครดิตไม่พอ', 'error');
-        return;
-      }
+    if (!Number.isFinite(initialCredits) || initialCredits <= 0) {
+      notify('กรุณากรอกเครดิตเริ่มต้นมากกว่า 0', 'error');
+      return;
+    }
+    if (initialCredits > MAX_CREDIT_TRANSFER) {
+      notify(`โอนเครดิตได้ไม่เกิน ${MAX_CREDIT_TRANSFER.toLocaleString('th-TH')} ต่อครั้ง`, 'error');
+      return;
+    }
+    if (!parentUnlimited && parent.credits < initialCredits) {
+      notify('เครดิตไม่พอ', 'error');
+      return;
     }
     if (newAgent.expiresAt) {
       const expiresAtDate = new Date(newAgent.expiresAt);
@@ -62,34 +58,33 @@ const AgentAgentsPage: React.FC = () => {
       }
       expiresAtIso = expiresAtDate.toISOString();
     }
-    const confirmMessage = isUnlimited
-      ? 'ยืนยันสร้างตัวแทนนี้ในโหมดไม่จำกัดเครดิต?'
+    const confirmMessage = parentUnlimited
+      ? 'ยืนยันสร้างตัวแทนนี้?'
       : `ยืนยันสร้างตัวแทนนี้และหักเครดิต ${initialCredits}?`;
     if (!window.confirm(confirmMessage)) return;
     const newId = `agent-${Date.now().toString(36)}`;
     const now = new Date().toISOString();
-    const childHistory: CreditHistoryEntry[] = [];
-    if (!isUnlimited) {
-      childHistory.push({
+    const childHistory: CreditHistoryEntry[] = [
+      {
         date: now,
         action: 'เครดิตเริ่มต้น',
         amount: initialCredits,
         balanceAfter: initialCredits,
-      });
-    }
-    const parentBalance = parentUnlimited || isUnlimited ? parent.credits : parent.credits - initialCredits;
+      },
+    ];
+    const parentBalance = parentUnlimited ? parent.credits : parent.credits - initialCredits;
     const parentHistory: CreditHistoryEntry = {
       date: now,
-      action: isUnlimited ? `สร้างตัวแทนไม่จำกัดให้ ${newAgent.username}` : `โอนให้ ${newAgent.username}`,
-      amount: parentUnlimited || isUnlimited ? 0 : -initialCredits,
-      balanceAfter: parentUnlimited || isUnlimited ? parent.credits : parentBalance,
+      action: `โอนให้ ${newAgent.username}`,
+      amount: parentUnlimited ? 0 : -initialCredits,
+      balanceAfter: parentBalance,
     };
     await addAgent({
       id: newId,
       username: newAgent.username,
       password: newAgent.password,
-      credits: isUnlimited ? 0 : initialCredits,
-      unlimitedCredits: isUnlimited,
+      credits: initialCredits,
+      unlimitedCredits: false,
       createdAt: now,
       keys: {},
       creditHistory: childHistory,
@@ -107,7 +102,7 @@ const AgentAgentsPage: React.FC = () => {
     updateUserData(updatedParent);
     refreshData();
     setAddModal(false);
-    setNewAgent({ username: '', password: '', credits: 100, expiresAt: '', unlimitedCredits: false });
+    setNewAgent({ username: '', password: '', credits: 100, expiresAt: '' });
     notify('สร้างตัวแทนแล้ว');
   };
 
@@ -254,26 +249,13 @@ const AgentAgentsPage: React.FC = () => {
         <form onSubmit={handleCreate} className="space-y-4">
           <Input label="ชื่อผู้ใช้" value={newAgent.username} onChange={e => setNewAgent({ ...newAgent, username: e.target.value })} required />
           <Input label="รหัสผ่าน" type="password" value={newAgent.password} onChange={e => setNewAgent({ ...newAgent, password: e.target.value })} required />
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <div>
-              <p className="text-sm font-semibold text-slate-700">ไม่จำกัดเครดิต</p>
-              <p className="text-xs text-slate-500">เปิดเพื่อสร้างตัวแทนที่ใช้งานได้ไม่จำกัด</p>
-            </div>
-            <ToggleSwitch
-              checked={newAgent.unlimitedCredits}
-              onChange={checked => {
-                setNewAgent({ ...newAgent, unlimitedCredits: checked });
-              }}
-            />
-          </div>
           <Input
             label="เครดิตเริ่มต้น"
             type="number"
             value={newAgent.credits}
             min={0}
             max={MAX_CREDIT_TRANSFER}
-            disabled={newAgent.unlimitedCredits}
-            required={!newAgent.unlimitedCredits}
+            required
             onChange={e => {
               const value = Number(e.target.value);
               setNewAgent({
@@ -282,9 +264,7 @@ const AgentAgentsPage: React.FC = () => {
               });
             }}
           />
-          {newAgent.unlimitedCredits && (
-            <p className="-mt-2 text-xs text-slate-500">บัญชีนี้จะไม่ถูกหักเครดิตในการใช้งาน</p>
-          )}
+          <p className="-mt-2 text-xs text-slate-500">บัญชีตัวแทนจะใช้งานแบบจำกัดเครดิต หากต้องการเปิดไม่จำกัดให้ติดต่อผู้ดูแลระบบ</p>
           <Input
             label="วันและเวลาหมดอายุ"
             type="datetime-local"
