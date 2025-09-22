@@ -10,7 +10,6 @@ import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import CountdownDisplay from '../components/ui/CountdownDisplay';
-import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { formatCredits, hasUnlimitedCredits } from '../utils/credits';
 
 const DEFAULT_NEW_AGENT_CREDITS = 1000;
@@ -226,7 +225,7 @@ const AgentsPage: React.FC = () => {
     const [isKeysModalOpen, setKeysModalOpen] = useState(false);
     const [isAddCreditsModalOpen, setAddCreditsModalOpen] = useState(false);
     const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-    const [newAgentData, setNewAgentData] = useState({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '', unlimitedCredits: false });
+    const [newAgentData, setNewAgentData] = useState({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '' });
     const [creditsToAdd, setCreditsToAdd] = useState(DEFAULT_CREDIT_INCREMENT);
     const [error, setError] = useState('');
     const [query, setQuery] = useState('');
@@ -252,14 +251,11 @@ const AgentsPage: React.FC = () => {
         try {
             const newId = `agent_${Date.now()}`;
             const initialCredits = Number(newAgentData.credits);
-            const isUnlimited = newAgentData.unlimitedCredits;
             let expiresAtIso: string | undefined;
 
-            if (!isUnlimited) {
-                if (!Number.isFinite(initialCredits) || initialCredits <= 0) {
-                    setError('กรุณากรอกจำนวนเครดิตมากกว่า 0');
-                    return;
-                }
+            if (!Number.isFinite(initialCredits) || initialCredits <= 0) {
+                setError('กรุณากรอกจำนวนเครดิตมากกว่า 0');
+                return;
             }
 
             if (newAgentData.expiresAt) {
@@ -276,31 +272,29 @@ const AgentsPage: React.FC = () => {
             }
 
             const nowIso = new Date().toISOString();
-            const initialHistoryEntry: CreditHistoryEntry | null = !isUnlimited
-                ? {
-                    date: nowIso,
-                    action: 'เครดิตเริ่มต้น',
-                    amount: initialCredits,
-                    balanceAfter: initialCredits,
-                }
-                : null;
+            const initialHistoryEntry: CreditHistoryEntry = {
+                date: nowIso,
+                action: 'เครดิตเริ่มต้น',
+                amount: initialCredits,
+                balanceAfter: initialCredits,
+            };
 
             await addAgent({
                 id: newId,
                 username: newAgentData.username,
                 password: newAgentData.password,
-                credits: isUnlimited ? 0 : initialCredits,
-                unlimitedCredits: isUnlimited,
+                credits: initialCredits,
+                unlimitedCredits: false,
                 createdAt: nowIso,
                 keys: {},
-                creditHistory: initialHistoryEntry ? [initialHistoryEntry] : [],
+                creditHistory: [initialHistoryEntry],
                 status: 'active',
                 welcomeAcknowledged: false,
                 expiresAt: expiresAtIso,
             });
             refreshData();
             setAddAgentModalOpen(false);
-            setNewAgentData({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '', unlimitedCredits: false });
+            setNewAgentData({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '' });
             notify('สร้างตัวแทนเรียบร้อย');
         } catch (err) {
             setError('ไม่สามารถเพิ่มตัวแทนได้');
@@ -424,29 +418,12 @@ const AgentsPage: React.FC = () => {
                  <form onSubmit={handleAddAgent} className="space-y-4">
                     <Input label="ชื่อผู้ใช้" placeholder="เช่น agent_007" value={newAgentData.username} onChange={e => setNewAgentData({...newAgentData, username: e.target.value})} required />
                     <Input label="รหัสผ่าน" type="password" placeholder="ตั้งรหัสผ่านสำหรับตัวแทน" value={newAgentData.password} onChange={e => setNewAgentData({...newAgentData, password: e.target.value})} required />
-                    <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <div>
-                            <p className="text-sm font-semibold text-slate-700">ไม่จำกัดเครดิต</p>
-                            <p className="text-xs text-slate-500">เปิดเพื่อให้ตัวแทนใช้งานได้โดยไม่หักเครดิต</p>
-                        </div>
-                        <ToggleSwitch
-                            checked={newAgentData.unlimitedCredits}
-                            onChange={checked => {
-                                setNewAgentData({ ...newAgentData, unlimitedCredits: checked });
-                                if (checked) {
-                                    setError('');
-                                }
-                            }}
-                        />
-                    </div>
                     <Input
                         label="เครดิตเริ่มต้น"
                         type="number"
                         placeholder="เช่น 1000"
                         value={newAgentData.credits}
                         min={0}
-                        disabled={newAgentData.unlimitedCredits}
-                        required={!newAgentData.unlimitedCredits}
                         onChange={e => {
                             const value = Number(e.target.value);
                             setNewAgentData({
@@ -455,9 +432,6 @@ const AgentsPage: React.FC = () => {
                             });
                         }}
                     />
-                    {newAgentData.unlimitedCredits && (
-                        <p className="text-xs text-slate-500 -mt-2">ระบบจะไม่หักเครดิตสำหรับบัญชีนี้</p>
-                    )}
                     <Input
                         label="วันและเวลาหมดอายุ"
                         type="datetime-local"
