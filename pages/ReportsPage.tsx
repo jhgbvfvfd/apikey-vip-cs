@@ -1,6 +1,7 @@
 import React from 'react';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { useData, useSettings } from '../App';
+import { formatCredits, hasUnlimitedCredits } from '../utils/credits';
 
 const ReportsPage: React.FC = () => {
   const { agents } = useData();
@@ -9,12 +10,16 @@ const ReportsPage: React.FC = () => {
   const allKeys = agents.flatMap(a => Object.values(a.keys || {}).flat());
   const totalTokens = allKeys.reduce((sum, k) => sum + k.tokens_remaining, 0);
   const totalKeys = allKeys.length;
-  const totalCredits = agents.reduce((sum, a) => sum + a.credits, 0);
+  const totalCredits = agents.filter(a => !hasUnlimitedCredits(a)).reduce((sum, a) => sum + a.credits, 0);
+  const unlimitedAgentsCount = agents.filter(a => hasUnlimitedCredits(a)).length;
+  const totalCreditsLabel = unlimitedAgentsCount > 0
+    ? `${totalCredits.toLocaleString()} (+${unlimitedAgentsCount} บัญชีไม่จำกัด)`
+    : totalCredits.toLocaleString();
 
   const agentUsage = agents.map(a => {
     const keys = Object.values(a.keys || {}).flat();
     const tokens = keys.reduce((s, k) => s + k.tokens_remaining, 0);
-    return { id: a.id, username: a.username, credits: a.credits, keys: keys.length, tokens };
+    return { id: a.id, username: a.username, creditsLabel: formatCredits(a), keys: keys.length, tokens };
   });
 
   return (
@@ -34,7 +39,7 @@ const ReportsPage: React.FC = () => {
         </Card>
         <Card>
           <CardHeader className="!pb-2"><CardTitle>เครดิตรวม</CardTitle></CardHeader>
-          <CardContent className="!pt-0"><p className="text-xl font-bold text-blue-600">{totalCredits.toLocaleString()}</p></CardContent>
+          <CardContent className="!pt-0"><p className="text-xl font-bold text-blue-600">{totalCreditsLabel}</p></CardContent>
         </Card>
       </div>
 
@@ -57,7 +62,7 @@ const ReportsPage: React.FC = () => {
                 {agentUsage.map(a => (
                   <tr key={a.id} className="border-t border-slate-200">
                     <td className="py-2">{a.username}</td>
-                    <td className="py-2">{a.credits.toLocaleString()}</td>
+                    <td className="py-2">{a.creditsLabel}</td>
                     <td className="py-2">{a.keys}</td>
                     <td className="py-2">{a.tokens.toLocaleString()}</td>
                   </tr>

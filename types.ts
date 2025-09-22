@@ -18,6 +18,7 @@ export interface Agent {
   username: string;
   password?: string;
   credits: number;
+  unlimitedCredits?: boolean;
   keys?: {
     [platformId: string]: ApiKey[];
   };

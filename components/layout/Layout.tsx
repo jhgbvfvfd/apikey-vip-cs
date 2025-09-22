@@ -7,6 +7,7 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Logo from '../ui/Logo';
 import { updateAgent } from '../../services/firebaseService';
+import { formatCredits } from '../../utils/credits';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -123,7 +124,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         </div>
                         <div>
                             <p className="text-xs font-medium text-slate-500 hidden sm:block">เครดิต</p>
-                            <p className="text-base font-bold text-blue-600">{agent.credits.toLocaleString()}</p>
+                            <p className="text-base font-bold text-blue-600">{formatCredits(agent)}</p>
                         </div>
                     </div>
                 )}

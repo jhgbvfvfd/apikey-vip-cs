@@ -3,6 +3,7 @@ import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { useAuth, useData, useSettings } from '../App';
 import { Agent } from '../types';
 import { Line } from 'react-chartjs-2';
+import { formatCredits, hasUnlimitedCredits } from '../utils/credits';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -20,6 +21,7 @@ const AgentUsagePage: React.FC = () => {
   const { platforms } = useData();
   const { t } = useSettings();
   const agent = user?.data as Agent;
+  const unlimitedCredits = hasUnlimitedCredits(agent);
 
   const keysByPlatform = agent.keys || {};
   const allKeys = Object.values(keysByPlatform).flat();
@@ -55,7 +57,7 @@ const AgentUsagePage: React.FC = () => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="!pb-2"><CardTitle>เครดิตคงเหลือ</CardTitle></CardHeader>
-          <CardContent className="!pt-0"><p className="text-xl font-bold text-blue-600">{agent.credits.toLocaleString()}</p></CardContent>
+          <CardContent className="!pt-0"><p className="text-xl font-bold text-blue-600">{formatCredits(agent)}</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="!pb-2"><CardTitle>จำนวนคีย์ทั้งหมด</CardTitle></CardHeader>
@@ -133,7 +135,7 @@ const AgentUsagePage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {creditHistory.length > 0 && (
+      {creditHistory.length > 0 && !unlimitedCredits && (
         <Card>
           <CardHeader>
             <CardTitle>กราฟการใช้เครดิต</CardTitle>

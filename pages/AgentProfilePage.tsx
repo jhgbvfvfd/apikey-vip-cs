@@ -2,6 +2,7 @@ import React from 'react';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { useAuth, useSettings } from '../App';
 import { Agent } from '../types';
+import { formatCredits } from '../utils/credits';
 
 const AgentProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -14,7 +15,7 @@ const AgentProfilePage: React.FC = () => {
           <CardTitle>{agent.username}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-slate-600 text-sm">เครดิตคงเหลือ: <span className="font-medium text-blue-600">{agent.credits.toLocaleString()}</span></p>
+          <p className="text-slate-600 text-sm">เครดิตคงเหลือ: <span className="font-medium text-blue-600">{formatCredits(agent)}</span></p>
         </CardContent>
       </Card>
     </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../App';
 import { Agent } from '../types';
+import { formatCredits, hasUnlimitedCredits } from '../utils/credits';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Line } from 'react-chartjs-2';
 import {
@@ -23,6 +24,7 @@ const AgentDashboardPage: React.FC = () => {
     const totalTokens = allKeys.reduce((sum, k) => sum + k.tokens_remaining, 0);
     const totalKeys = allKeys.length;
     const creditHistory = agent.creditHistory || [];
+    const unlimitedCredits = hasUnlimitedCredits(agent);
 
     const chartData = {
         labels: creditHistory.map(h => new Date(h.date).toLocaleDateString('th-TH')),
@@ -41,7 +43,7 @@ const AgentDashboardPage: React.FC = () => {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="!pb-2"><CardTitle>เครดิตคงเหลือ</CardTitle></CardHeader>
-                    <CardContent className="!pt-0"><p className="text-xl font-bold text-blue-600">{agent.credits.toLocaleString()}</p></CardContent>
+                    <CardContent className="!pt-0"><p className="text-xl font-bold text-blue-600">{formatCredits(agent)}</p></CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="!pb-2"><CardTitle>จำนวนคีย์ทั้งหมด</CardTitle></CardHeader>
@@ -57,7 +59,7 @@ const AgentDashboardPage: React.FC = () => {
                 </Card>
             </div>
 
-            {creditHistory.length > 0 && (
+            {creditHistory.length > 0 && !unlimitedCredits && (
                 <Card>
                     <CardHeader><CardTitle>กราฟเครดิตคงเหลือ</CardTitle></CardHeader>
                     <CardContent>

@@ -143,6 +143,7 @@ const handler: Handler = async (event) => {
   }
 
   let agentCreditSnapshot: { credits: number; history: any[] } | null = null;
+  let agentHasUnlimitedCredits = false;
 
   if (foundAgentId && foundAgentId !== 'standalone') {
     const agentRes = await fetch(`${FIREBASE_URL}agents/${foundAgentId}.json`);
@@ -153,29 +154,34 @@ const handler: Handler = async (event) => {
       };
     }
 
-    const agentData: { credits?: number | string; creditHistory?: any[] } | null = await agentRes.json();
-    const rawCredits = agentData?.credits;
-    let currentCredits = 0;
-    if (typeof rawCredits === 'number' && Number.isFinite(rawCredits)) {
-      currentCredits = rawCredits;
-    } else if (typeof rawCredits === 'string') {
-      const parsed = Number(rawCredits);
-      if (Number.isFinite(parsed)) {
-        currentCredits = parsed;
-      }
-    }
+    const agentData: { credits?: number | string; creditHistory?: any[]; unlimitedCredits?: boolean } | null = await agentRes.json();
+    agentHasUnlimitedCredits = agentData?.unlimitedCredits === true;
+    const history = Array.isArray(agentData?.creditHistory) ? [...agentData.creditHistory] : [];
 
-    if (currentCredits < tokens) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ ok: false, error: 'INSUFFICIENT_CREDITS', message: 'Not enough credits remaining.' }),
+    if (!agentHasUnlimitedCredits) {
+      const rawCredits = agentData?.credits;
+      let currentCredits = 0;
+      if (typeof rawCredits === 'number' && Number.isFinite(rawCredits)) {
+        currentCredits = rawCredits;
+      } else if (typeof rawCredits === 'string') {
+        const parsed = Number(rawCredits);
+        if (Number.isFinite(parsed)) {
+          currentCredits = parsed;
+        }
+      }
+
+      if (currentCredits < tokens) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ ok: false, error: 'INSUFFICIENT_CREDITS', message: 'Not enough credits remaining.' }),
+        };
+      }
+
+      agentCreditSnapshot = {
+        credits: currentCredits,
+        history,
       };
     }
-
-    agentCreditSnapshot = {
-      credits: currentCredits,
-      history: Array.isArray(agentData?.creditHistory) ? [...agentData.creditHistory] : [],
-    };
   }
 
   const newRemaining = foundKey.tokens_remaining - tokens;
@@ -187,7 +193,7 @@ const handler: Handler = async (event) => {
   });
 
   // deduct credits and record credit history for agent-owned keys
-  if (agentCreditSnapshot) {
+  if (agentCreditSnapshot && !agentHasUnlimitedCredits) {
     const newCredits = agentCreditSnapshot.credits - tokens;
     const history = [...agentCreditSnapshot.history];
     history.push({

@@ -3,6 +3,7 @@ import { useData, useAuth, useSettings } from '../App';
 import { Agent, ApiKey, CreditHistoryEntry } from '../types';
 import { updateAgent } from '../services/firebaseService';
 import { generateKey } from '../utils/keyGenerator';
+import { hasUnlimitedCredits } from '../utils/credits';
 import Button from '../components/ui/Button';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
@@ -54,7 +55,8 @@ const AgentGenerateKeyPage: React.FC = () => {
             setLoading(false);
             return;
         }
-        if (agent.credits < cost) {
+        const unlimitedCredits = hasUnlimitedCredits(agent);
+        if (!unlimitedCredits && agent.credits < cost) {
             setError(`เครดิตไม่เพียงพอ คุณมี ${agent.credits}, แต่ต้องการ ${cost}`); setLoading(false); return;
         }
 
@@ -68,12 +70,15 @@ const AgentGenerateKeyPage: React.FC = () => {
             };
 
             const updatedAgent = JSON.parse(JSON.stringify(agent));
-            const newBalance = agent.credits - cost;
-            updatedAgent.credits = newBalance;
             const newHistoryEntry: CreditHistoryEntry = {
                 date: new Date().toISOString(),
-                action: `สร้างคีย์สำหรับ ${platform.title}`, amount: -cost, balanceAfter: newBalance,
+                action: `สร้างคีย์สำหรับ ${platform.title}`,
+                amount: unlimitedCredits ? 0 : -cost,
+                balanceAfter: unlimitedCredits ? agent.credits : agent.credits - cost,
             };
+            if (!unlimitedCredits) {
+                updatedAgent.credits = agent.credits - cost;
+            }
             updatedAgent.creditHistory = [...(updatedAgent.creditHistory || []), newHistoryEntry];
             if (!updatedAgent.keys) updatedAgent.keys = {};
             if (!updatedAgent.keys[platform.id]) updatedAgent.keys[platform.id] = [];
