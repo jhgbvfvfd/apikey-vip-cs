@@ -119,8 +119,6 @@ const handler: Handler = async (event) => {
     };
   }
 
-  const usageMode: 'token' | 'duration' = foundKey.usageMode === 'duration' ? 'duration' : 'token';
-
   if (foundAgentId) {
     const banRes = await fetch(`${FIREBASE_URL}ip_bans/${foundAgentId}.json`);
     if (banRes.ok) {
@@ -141,17 +139,7 @@ const handler: Handler = async (event) => {
     };
   }
 
-  if (usageMode === 'duration') {
-    if (foundKey.expiresAt) {
-      const expiresAt = new Date(foundKey.expiresAt).getTime();
-      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-        return {
-          statusCode: 403,
-          body: JSON.stringify({ ok: false, error: 'KEY_EXPIRED', message: 'This key has expired.' }),
-        };
-      }
-    }
-  } else if (foundKey.tokens_remaining < tokens) {
+  if (foundKey.tokens_remaining < tokens) {
     return {
       statusCode: 400,
       body: JSON.stringify({ ok: false, error: 'INSUFFICIENT_TOKENS', message: 'Not enough tokens remaining.' }),
@@ -161,7 +149,7 @@ const handler: Handler = async (event) => {
   let agentCreditSnapshot: { credits: number; history: any[] } | null = null;
   let agentHasUnlimitedCredits = false;
 
-  if (usageMode === 'token' && foundAgentId && foundAgentId !== 'standalone') {
+  if (foundAgentId && foundAgentId !== 'standalone') {
     const agentRes = await fetch(`${FIREBASE_URL}agents/${foundAgentId}.json`);
     if (!agentRes.ok) {
       return {
@@ -202,18 +190,16 @@ const handler: Handler = async (event) => {
 
   let newRemaining = foundKey.tokens_remaining;
 
-  if (usageMode === 'token') {
-    newRemaining = foundKey.tokens_remaining - tokens;
+  newRemaining = foundKey.tokens_remaining - tokens;
 
-    await fetch(`${FIREBASE_URL}${updatePath}.json`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tokens_remaining: newRemaining }),
-    });
-  }
+  await fetch(`${FIREBASE_URL}${updatePath}.json`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tokens_remaining: newRemaining }),
+  });
 
   // deduct credits and record credit history for agent-owned keys
-  if (usageMode === 'token' && agentCreditSnapshot && !agentHasUnlimitedCredits) {
+  if (agentCreditSnapshot && !agentHasUnlimitedCredits) {
     const newCredits = agentCreditSnapshot.credits - tokens;
     const history = [...agentCreditSnapshot.history];
     history.push({
@@ -237,7 +223,7 @@ const handler: Handler = async (event) => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ ok: true, tokens_remaining: newRemaining, usageMode, expiresAt: foundKey.expiresAt }),
+    body: JSON.stringify({ ok: true, tokens_remaining: newRemaining }),
   };
 };
 

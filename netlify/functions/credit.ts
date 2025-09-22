@@ -123,51 +123,20 @@ const handler: Handler = async (event) => {
     };
   }
 
-  const usageMode: 'token' | 'duration' = foundKey.usageMode === 'duration' ? 'duration' : 'token';
-
-  let expiresAtIso: string | undefined;
-  let daysRemaining: number | undefined;
-
-  if (usageMode === 'duration' && foundKey.expiresAt) {
-    const expiresAt = new Date(foundKey.expiresAt);
-    if (!Number.isNaN(expiresAt.getTime())) {
-      expiresAtIso = expiresAt.toISOString();
-      const diffMs = expiresAt.getTime() - Date.now();
-      daysRemaining = diffMs <= 0 ? 0 : Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    }
-  }
-
   await fetch(`${FIREBASE_URL}key_logs.json`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ key: keyParam, agentId: foundAgentId, ip, usedAt: new Date().toISOString(), usageMode }),
+    body: JSON.stringify({ key: keyParam, agentId: foundAgentId, ip, usedAt: new Date().toISOString() }),
   });
 
   let status: string = foundKey.status;
-  if (usageMode === 'token') {
-    status = foundKey.tokens_remaining <= 0 ? 'no_tokens' : foundKey.status;
-  } else if (typeof daysRemaining === 'number' && daysRemaining <= 0) {
-    status = 'expired';
-  }
+  status = foundKey.tokens_remaining <= 0 ? 'no_tokens' : foundKey.status;
 
   const responseBody: Record<string, unknown> = {
     ok: true,
-    usageMode,
     tokens_remaining: foundKey.tokens_remaining,
     status,
   };
-
-  if (usageMode === 'duration') {
-    if (typeof foundKey.durationDays === 'number' && Number.isFinite(foundKey.durationDays)) {
-      responseBody.durationDays = foundKey.durationDays;
-    }
-    if (expiresAtIso) {
-      responseBody.expiresAt = expiresAtIso;
-    }
-    if (typeof daysRemaining === 'number') {
-      responseBody.days_remaining = daysRemaining;
-    }
-  }
 
   return {
     statusCode: 200,

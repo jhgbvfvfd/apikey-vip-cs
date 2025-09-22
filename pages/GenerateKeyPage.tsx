@@ -17,7 +17,7 @@ import {
     TrashIcon,
 } from '@heroicons/react/24/outline';
 
-type CreatedKeyPreview = Pick<StandaloneKey, 'key' | 'usageMode' | 'tokens_remaining' | 'expiresAt' | 'durationDays'>;
+type CreatedKeyPreview = Pick<StandaloneKey, 'key' | 'tokens_remaining'>;
 
 const KeyRow: React.FC<{
     apiKey: StandaloneKey;
@@ -26,9 +26,6 @@ const KeyRow: React.FC<{
 }> = ({ apiKey, onUpdateStatus, onDelete }) => {
     const [copied, setCopied] = useState(false);
     const { notify, t } = useSettings();
-    const usageMode: 'token' | 'duration' = apiKey.usageMode === 'duration' ? 'duration' : 'token';
-    const expiresAtDate = apiKey.expiresAt ? new Date(apiKey.expiresAt) : null;
-    const isExpired = usageMode === 'duration' && expiresAtDate !== null && expiresAtDate.getTime() <= Date.now();
 
     const handleCopy = async () => {
         try {
@@ -43,10 +40,6 @@ const KeyRow: React.FC<{
     };
 
     const handleToggleStatus = () => {
-        if (isExpired) {
-            notify('คีย์หมดอายุแล้ว ไม่สามารถเปลี่ยนสถานะได้', 'error');
-            return;
-        }
         const newStatus = apiKey.status === 'active' ? 'inactive' : 'active';
         onUpdateStatus(apiKey, newStatus);
     };
@@ -59,17 +52,7 @@ const KeyRow: React.FC<{
         <tr className="border-b border-slate-200 last:border-b-0 odd:bg-white even:bg-slate-50 hover:bg-slate-100">
             <td className="p-2 font-mono text-xs sm:text-sm text-blue-600 break-all">{apiKey.key}</td>
             <td className="p-2 text-xs sm:text-sm text-slate-600 whitespace-nowrap">
-                {usageMode === 'token' ? (
-                    <span className="font-medium text-slate-700">{apiKey.tokens_remaining.toLocaleString()} โทเค็น</span>
-                ) : (
-                    <div className="flex flex-col">
-                        <span className="font-medium text-slate-700">{typeof apiKey.durationDays === 'number' ? apiKey.durationDays.toLocaleString() : '-'} วัน</span>
-                        {apiKey.expiresAt && (
-                            <span className="text-[11px] text-slate-500">หมดอายุ {new Date(apiKey.expiresAt).toLocaleDateString('th-TH')}</span>
-                        )}
-                        {isExpired && <span className="text-[11px] text-red-500">หมดอายุแล้ว</span>}
-                    </div>
-                )}
+                <span className="font-medium text-slate-700">{apiKey.tokens_remaining.toLocaleString()} โทเค็น</span>
             </td>
             <td className="p-2 whitespace-nowrap">
                 {(() => {
@@ -77,18 +60,14 @@ const KeyRow: React.FC<{
                     let statusColor = 'bg-green-100 text-green-800';
                     let dotColor = 'text-green-400';
 
-                    if (isExpired) {
-                        label = 'หมดอายุ';
-                        statusColor = 'bg-orange-100 text-orange-800';
-                        dotColor = 'text-orange-400';
-                    } else if (usageMode === 'token' && apiKey.tokens_remaining <= 0) {
-                        label = t('statusNoTokens' as any);
-                        statusColor = 'bg-red-100 text-red-800';
-                        dotColor = 'text-red-400';
-                    } else if (apiKey.status !== 'active') {
+                    if (apiKey.status !== 'active') {
                         label = t('statusInactive' as any);
                         statusColor = 'bg-slate-100 text-slate-800';
                         dotColor = 'text-slate-400';
+                    } else if (apiKey.tokens_remaining <= 0) {
+                        label = t('statusNoTokens' as any);
+                        statusColor = 'bg-red-100 text-red-800';
+                        dotColor = 'text-red-400';
                     }
 
                     return (
@@ -117,9 +96,8 @@ const KeyRow: React.FC<{
                     </button>
                     <button
                         onClick={handleToggleStatus}
-                        className={`p-1.5 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-700 ${isExpired ? 'opacity-50 cursor-not-allowed hover:bg-transparent hover:text-slate-500' : ''}`}
-                        title={isExpired ? 'คีย์หมดอายุแล้ว' : apiKey.status === 'active' ? 'ระงับคีย์' : 'เปิดใช้งาน'}
-                        disabled={isExpired}
+                        className="p-1.5 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-700"
+                        title={apiKey.status === 'active' ? 'ระงับคีย์' : 'เปิดใช้งาน'}
                     >
                         {apiKey.status === 'active' ? (
                             <PauseIcon className="w-4 h-4" />
@@ -152,13 +130,9 @@ const GenerateKeyPage: React.FC = () => {
     const [activeMenu, setActiveMenu] = useState<'create' | 'manage'>('create');
     const MIN_TOKENS = 1;
     const MAX_TOKENS = 1000;
-    const MIN_DAYS = 1;
-    const MAX_DAYS = 30;
     const MIN_KEYS = 1;
     const MAX_KEYS = 30;
-    const [usageMode, setUsageMode] = useState<'token' | 'duration'>('token');
     const [tokens, setTokens] = useState(100);
-    const [durationDays, setDurationDays] = useState(7);
     const [quantity, setQuantity] = useState(1);
     const [error, setError] = useState('');
 
@@ -182,63 +156,40 @@ const GenerateKeyPage: React.FC = () => {
         }
 
         const cost = Number(tokens);
-        if (usageMode === 'token') {
-            if (!Number.isFinite(cost) || !Number.isInteger(cost) || cost < MIN_TOKENS || cost > MAX_TOKENS) {
-                setError(`กำหนดโทเค็นได้ระหว่าง ${MIN_TOKENS} - ${MAX_TOKENS}`);
-                return;
-            }
-        } else {
-            if (!Number.isFinite(durationDays) || !Number.isInteger(durationDays) || durationDays < MIN_DAYS || durationDays > MAX_DAYS) {
-                setError(`กำหนดวันได้ระหว่าง ${MIN_DAYS}-${MAX_DAYS}`);
-                return;
-            }
+        if (!Number.isFinite(cost) || !Number.isInteger(cost) || cost < MIN_TOKENS || cost > MAX_TOKENS) {
+            setError(`กำหนดโทเค็นได้ระหว่าง ${MIN_TOKENS} - ${MAX_TOKENS}`);
+            return;
         }
 
         try {
             const totalCreated = quantity;
             const selectedTokenCost = cost;
-            const selectedDuration = durationDays;
             const timestamp = Date.now();
             const creationDate = new Date();
             const createdAt = creationDate.toISOString();
-            const expiryBase = creationDate.getTime();
             const keysToCreate: (Omit<StandaloneKey, 'id'> & { id: string })[] = Array.from({ length: totalCreated }, (_, index) => {
                 const keyString = generateKey(platform.prefix, platform.pattern);
-                const expiresAt = usageMode === 'duration'
-                    ? new Date(expiryBase + (selectedDuration || MIN_DAYS) * 24 * 60 * 60 * 1000).toISOString()
-                    : undefined;
                 return {
                     id: `key_${timestamp}_${index}_${Math.random().toString(36).slice(2, 8)}`,
                     key: keyString,
-                    tokens_remaining: usageMode === 'token' ? selectedTokenCost : 0,
+                    tokens_remaining: selectedTokenCost,
                     status: 'active',
                     createdAt,
                     platformId: platform.id,
                     platformTitle: platform.title,
-                    usageMode,
-                    expiresAt,
-                    durationDays: usageMode === 'duration' ? selectedDuration : undefined,
                 };
             });
 
             await Promise.all(keysToCreate.map(key => addStandaloneKey(key)));
             refreshData();
-            setCreatedKeys(keysToCreate.map(({ key, usageMode: mode, tokens_remaining, expiresAt, durationDays }) => ({
+            setCreatedKeys(keysToCreate.map(({ key, tokens_remaining }) => ({
                 key,
-                usageMode: mode,
                 tokens_remaining,
-                expiresAt,
-                durationDays,
             })));
             setIsModalOpen(true);
             setActiveMenu('manage');
             notify(`สร้างคีย์ ${totalCreated.toLocaleString()} รายการเรียบร้อย`);
-            if (usageMode === 'token') {
-                setTokens(selectedTokenCost);
-            }
-            if (usageMode === 'duration') {
-                setDurationDays(selectedDuration);
-            }
+            setTokens(selectedTokenCost);
             setQuantity(1);
         } catch (err) {
             setError('ไม่สามารถสร้างคีย์ได้');
@@ -344,71 +295,21 @@ const GenerateKeyPage: React.FC = () => {
                             </CardHeader>
                             <CardContent>
                                 <form onSubmit={handleGenerateKey} className="space-y-4">
-                                    <div className="space-y-2">
-                                        <p className="text-xs uppercase tracking-[0.3em] text-blue-500 font-semibold">รูปแบบการจำกัด</p>
-                                        <div className="grid gap-3 sm:grid-cols-2">
-                                            <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition-colors ${usageMode === 'token' ? 'border-blue-500 bg-blue-50/70 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}>
-                                                <input
-                                                    type="radio"
-                                                    name="usageMode"
-                                                    value="token"
-                                                    checked={usageMode === 'token'}
-                                                    onChange={() => setUsageMode('token')}
-                                                    className="mt-1 h-4 w-4"
-                                                />
-                                                <div>
-                                                    <p className="text-sm font-semibold text-slate-800">คิดตามโทเค็น</p>
-                                                    <p className="text-xs text-slate-500">เหมาะสำหรับการจำกัดปริมาณการใช้งานตามเครดิต</p>
-                                                </div>
-                                            </label>
-                                            <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition-colors ${usageMode === 'duration' ? 'border-blue-500 bg-blue-50/70 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}>
-                                                <input
-                                                    type="radio"
-                                                    name="usageMode"
-                                                    value="duration"
-                                                    checked={usageMode === 'duration'}
-                                                    onChange={() => setUsageMode('duration')}
-                                                    className="mt-1 h-4 w-4"
-                                                />
-                                                <div>
-                                                    <p className="text-sm font-semibold text-slate-800">จำกัดตามวัน</p>
-                                                    <p className="text-xs text-slate-500">ใช้งานได้ตามจำนวนวันที่กำหนด สูงสุด {MAX_DAYS} วัน</p>
-                                                </div>
-                                            </label>
-                                        </div>
+                                    <div className="space-y-1">
+                                        <Input
+                                            label="จำนวนโทเค็นต่อคีย์"
+                                            type="number"
+                                            min={MIN_TOKENS}
+                                            max={MAX_TOKENS}
+                                            step={1}
+                                            value={tokens}
+                                            onChange={e => setTokens(Number(e.target.value))}
+                                            required
+                                        />
+                                        <p className="text-xs text-slate-500">
+                                            กำหนดได้ระหว่าง {MIN_TOKENS.toLocaleString()} - {MAX_TOKENS.toLocaleString()} โทเค็นต่อคีย์
+                                        </p>
                                     </div>
-
-                                    {usageMode === 'token' ? (
-                                        <div className="space-y-1">
-                                            <Input
-                                                label="จำนวนโทเค็นต่อคีย์"
-                                                type="number"
-                                                min={MIN_TOKENS}
-                                                max={MAX_TOKENS}
-                                                step={1}
-                                                value={tokens}
-                                                onChange={e => setTokens(Number(e.target.value))}
-                                                required
-                                            />
-                                            <p className="text-xs text-slate-500">
-                                                กำหนดได้ระหว่าง {MIN_TOKENS.toLocaleString()} - {MAX_TOKENS.toLocaleString()} โทเค็นต่อคีย์
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-1">
-                                            <Input
-                                                label="จำนวนวันใช้งาน"
-                                                type="number"
-                                                min={MIN_DAYS}
-                                                max={MAX_DAYS}
-                                                step={1}
-                                                value={durationDays}
-                                                onChange={e => setDurationDays(Number(e.target.value))}
-                                                required
-                                            />
-                                            <p className="text-xs text-slate-500">กำหนดได้ระหว่าง {MIN_DAYS} - {MAX_DAYS} วันต่อคีย์</p>
-                                        </div>
-                                    )}
 
                                     <div className="space-y-1">
                                         <Input
@@ -443,7 +344,7 @@ const GenerateKeyPage: React.FC = () => {
                                 <thead className="bg-slate-50 text-slate-500">
                                     <tr>
                                         <th className="w-40 p-2 text-xs font-semibold sm:text-sm">คีย์</th>
-                                        <th className="w-32 p-2 text-xs font-semibold sm:text-sm">การจำกัด</th>
+                                        <th className="w-32 p-2 text-xs font-semibold sm:text-sm">โทเค็นคงเหลือ</th>
                                         <th className="w-24 p-2 text-xs font-semibold sm:text-sm">สถานะ</th>
                                         <th className="w-28 p-2 text-xs font-semibold sm:text-sm">วันที่สร้าง</th>
                                         <th className="p-2 text-center text-xs font-semibold sm:text-sm">จัดการ</th>
@@ -484,38 +385,26 @@ const GenerateKeyPage: React.FC = () => {
                 <div className="space-y-4">
                     <p className="text-slate-600">คัดลอกคีย์ด้านล่างนี้ คีย์จะแสดงเพียงครั้งเดียวเท่านั้น</p>
                     <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                        {createdKeys.map((info, index) => {
-                            const durationText = typeof info.durationDays === 'number'
-                                ? info.durationDays.toLocaleString()
-                                : '-';
-                            const usageLabel = info.usageMode === 'duration'
-                                ? `ใช้งานได้ ${durationText} วัน`
-                                : `โทเค็น ${info.tokens_remaining.toLocaleString()}`;
-                            const expiresLabel = info.usageMode === 'duration' && info.expiresAt
-                                ? `หมดอายุ ${new Date(info.expiresAt).toLocaleDateString('th-TH')}`
-                                : null;
-                            return (
-                                <div
-                                    key={`${info.key}-${index}`}
-                                    className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
-                                >
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                        <div>
-                                            <p className="font-mono text-sm sm:text-base font-medium text-blue-600 break-all">
-                                                {info.key}
-                                            </p>
-                                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                                                <span>{usageLabel}</span>
-                                                {expiresLabel && <span>{expiresLabel}</span>}
-                                            </div>
+                        {createdKeys.map((info, index) => (
+                            <div
+                                key={`${info.key}-${index}`}
+                                className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
+                            >
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <p className="font-mono text-sm sm:text-base font-medium text-blue-600 break-all">
+                                            {info.key}
+                                        </p>
+                                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                                            <span>โทเค็น {info.tokens_remaining.toLocaleString()}</span>
                                         </div>
-                                        <Button type="button" variant="secondary" onClick={() => handleCopySingle(info.key)}>
-                                            คัดลอก
-                                        </Button>
                                     </div>
+                                    <Button type="button" variant="secondary" onClick={() => handleCopySingle(info.key)}>
+                                        คัดลอก
+                                    </Button>
                                 </div>
-                            );
-                        })}
+                            </div>
+                        ))}
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                         <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
