@@ -5,6 +5,9 @@ export interface ApiKey {
   status: 'active' | 'inactive';
   createdAt: string;
   banLocked?: boolean;
+  usageMode?: 'token' | 'duration';
+  expiresAt?: string;
+  durationDays?: number;
 }
 
 export interface CreditHistoryEntry {

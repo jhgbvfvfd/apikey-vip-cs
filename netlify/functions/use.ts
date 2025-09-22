@@ -7,6 +7,9 @@ interface ApiKey {
   tokens_remaining: number;
   status: 'active' | 'inactive';
   banLocked?: boolean;
+  usageMode?: 'token' | 'duration';
+  expiresAt?: string;
+  durationDays?: number;
 }
 
 interface AgentRecord {
@@ -116,6 +119,8 @@ const handler: Handler = async (event) => {
     };
   }
 
+  const usageMode: 'token' | 'duration' = foundKey.usageMode === 'duration' ? 'duration' : 'token';
+
   if (foundAgentId) {
     const banRes = await fetch(`${FIREBASE_URL}ip_bans/${foundAgentId}.json`);
     if (banRes.ok) {
@@ -136,7 +141,17 @@ const handler: Handler = async (event) => {
     };
   }
 
-  if (foundKey.tokens_remaining < tokens) {
+  if (usageMode === 'duration') {
+    if (foundKey.expiresAt) {
+      const expiresAt = new Date(foundKey.expiresAt).getTime();
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        return {
+          statusCode: 403,
+          body: JSON.stringify({ ok: false, error: 'KEY_EXPIRED', message: 'This key has expired.' }),
+        };
+      }
+    }
+  } else if (foundKey.tokens_remaining < tokens) {
     return {
       statusCode: 400,
       body: JSON.stringify({ ok: false, error: 'INSUFFICIENT_TOKENS', message: 'Not enough tokens remaining.' }),
@@ -146,7 +161,7 @@ const handler: Handler = async (event) => {
   let agentCreditSnapshot: { credits: number; history: any[] } | null = null;
   let agentHasUnlimitedCredits = false;
 
-  if (foundAgentId && foundAgentId !== 'standalone') {
+  if (usageMode === 'token' && foundAgentId && foundAgentId !== 'standalone') {
     const agentRes = await fetch(`${FIREBASE_URL}agents/${foundAgentId}.json`);
     if (!agentRes.ok) {
       return {
@@ -185,16 +200,20 @@ const handler: Handler = async (event) => {
     }
   }
 
-  const newRemaining = foundKey.tokens_remaining - tokens;
+  let newRemaining = foundKey.tokens_remaining;
 
-  await fetch(`${FIREBASE_URL}${updatePath}.json`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tokens_remaining: newRemaining }),
-  });
+  if (usageMode === 'token') {
+    newRemaining = foundKey.tokens_remaining - tokens;
+
+    await fetch(`${FIREBASE_URL}${updatePath}.json`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tokens_remaining: newRemaining }),
+    });
+  }
 
   // deduct credits and record credit history for agent-owned keys
-  if (agentCreditSnapshot && !agentHasUnlimitedCredits) {
+  if (usageMode === 'token' && agentCreditSnapshot && !agentHasUnlimitedCredits) {
     const newCredits = agentCreditSnapshot.credits - tokens;
     const history = [...agentCreditSnapshot.history];
     history.push({
@@ -218,7 +237,7 @@ const handler: Handler = async (event) => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ ok: true, tokens_remaining: newRemaining }),
+    body: JSON.stringify({ ok: true, tokens_remaining: newRemaining, usageMode, expiresAt: foundKey.expiresAt }),
   };
 };
 
