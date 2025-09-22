@@ -147,6 +147,7 @@ const ApiGuidePage: React.FC = () => {
       requestExample: `curl -X GET "${baseUrl}/PLATFORM_ID/credit?key=YOUR_KEY"`,
       successExample: `{
   "ok": true,
+  "usageMode": "token",
   "tokens_remaining": 998,
   "status": "active"
 }`,
@@ -227,6 +228,25 @@ const ApiGuidePage: React.FC = () => {
     notes: t('apiGuideNotes'),
   };
 
+  const renderDurationExample = () => (
+    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+      <p className="text-sm font-semibold text-slate-700">{t('apiGuideCreditDurationHeading')}</p>
+      <p className="text-sm text-slate-600 leading-relaxed">{t('apiGuideCreditDurationDesc')}</p>
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('apiGuideCreditDurationExampleLabel')}</p>
+        <CodeBlock language="json">{`{
+  "ok": true,
+  "usageMode": "duration",
+  "status": "active",
+  "expiresAt": "2024-05-01T00:00:00.000Z",
+  "days_remaining": 12,
+  "durationDays": 30,
+  "tokens_remaining": 998
+}`}</CodeBlock>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
       <Card className="overflow-hidden border-blue-100 shadow-lg shadow-blue-100/50">
@@ -279,7 +299,10 @@ const ApiGuidePage: React.FC = () => {
 
       <div className="space-y-6">
         {endpoints.map((endpoint) => (
-          <EndpointCard key={endpoint.step} {...endpoint} labels={labels} />
+          <React.Fragment key={endpoint.step}>
+            <EndpointCard {...endpoint} labels={labels} />
+            {endpoint.step === 1 && renderDurationExample()}
+          </React.Fragment>
         ))}
       </div>
 

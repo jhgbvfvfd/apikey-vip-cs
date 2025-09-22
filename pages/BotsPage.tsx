@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useAuth, useData, useSettings } from '../App';
 import { addBot, updateBot, deleteBot } from '../services/firebaseService';
-import { Bot } from '../types';
+import { Bot, UsageMode } from '../types';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
@@ -16,10 +16,35 @@ const BotsPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBot, setEditingBot] = useState<Bot | null>(null);
     const [botToDelete, setBotToDelete] = useState<Bot | null>(null);
-    const [newBot, setNewBot] = useState({ name: '', url: '', tokenCost: 1 });
+    interface BotFormState {
+        name: string;
+        url: string;
+        tokenCost: number;
+        usageModes: UsageMode[];
+    }
+
+    const createDefaultFormState = (): BotFormState => ({ name: '', url: '', tokenCost: 1, usageModes: ['token'] });
+
+    const [newBot, setNewBot] = useState<BotFormState>(createDefaultFormState());
     const [error, setError] = useState('');
 
     const isAgent = user?.role === 'agent';
+
+    const getUsageModeSummary = (modes?: UsageMode[]): string => {
+        const normalized = Array.isArray(modes) ? modes : ['token'];
+        const hasToken = normalized.includes('token');
+        const hasDuration = normalized.includes('duration');
+
+        if (hasToken && hasDuration) {
+            return t('botUsageModesSummaryBoth');
+        }
+
+        if (hasDuration) {
+            return t('botUsageModesSummaryDuration');
+        }
+
+        return t('botUsageModesSummaryToken');
+    };
 
     const BotCard: React.FC<{ bot: Bot }> = ({ bot }) => (
         <Card className="p-3" onClick={isAgent ? () => window.open(bot.url, '_blank', 'noopener,noreferrer') : undefined}>
@@ -28,6 +53,7 @@ const BotsPage: React.FC = () => {
                     <h3 className="font-semibold text-slate-800 text-md">{bot.name}</h3>
                     <a href={bot.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-700 font-mono break-all hover:underline">{bot.url}</a>
                     <p className="text-sm text-slate-500 mt-1">{t('tokenCost')}: {bot.tokenCost}</p>
+                    <p className="text-xs font-medium text-blue-600 mt-2">{getUsageModeSummary(bot.usageModes)}</p>
                 </div>
                 <div className="flex gap-2 sm:flex-col sm:items-end">
                     <p className="text-xs text-slate-500">เพิ่มเมื่อ: {new Date(bot.addedAt).toLocaleDateString('th-TH')}</p>
@@ -44,25 +70,31 @@ const BotsPage: React.FC = () => {
 
     const handleEdit = (bot: Bot) => {
         setEditingBot(bot);
-        setNewBot({ name: bot.name, url: bot.url, tokenCost: bot.tokenCost });
+        setNewBot({ name: bot.name, url: bot.url, tokenCost: bot.tokenCost, usageModes: Array.isArray(bot.usageModes) && bot.usageModes.length > 0 ? bot.usageModes : ['token'] });
         setIsModalOpen(true);
     };
 
     const handleSaveBot = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+
+        if (!newBot.usageModes || newBot.usageModes.length === 0) {
+            setError(t('botUsageModesRequired'));
+            return;
+        }
+
         try {
             if (editingBot) {
-                await updateBot({ id: editingBot.id, name: newBot.name, url: newBot.url, tokenCost: Number(newBot.tokenCost), addedAt: editingBot.addedAt });
+                await updateBot({ id: editingBot.id, name: newBot.name, url: newBot.url, tokenCost: Number(newBot.tokenCost), addedAt: editingBot.addedAt, usageModes: newBot.usageModes });
                 notify('อัปเดตบอทแล้ว');
             } else {
                 const newId = `bot_${Date.now()}`;
-                await addBot({ id: newId, name: newBot.name, url: newBot.url, tokenCost: Number(newBot.tokenCost), addedAt: new Date().toISOString() });
+                await addBot({ id: newId, name: newBot.name, url: newBot.url, tokenCost: Number(newBot.tokenCost), addedAt: new Date().toISOString(), usageModes: newBot.usageModes });
                 notify('เพิ่มบอทแล้ว');
             }
             refreshData();
             setIsModalOpen(false);
-            setNewBot({ name: '', url: '', tokenCost: 1 });
+            setNewBot(createDefaultFormState());
             setEditingBot(null);
         } catch (err) {
             setError('ไม่สามารถบันทึกบอทได้');
@@ -87,7 +119,7 @@ const BotsPage: React.FC = () => {
     return (
         <div className="space-y-6">
         <div className="flex justify-end">
-            {!isAgent && <Button onClick={() => { setEditingBot(null); setNewBot({ name: '', url: '', tokenCost: 1 }); setIsModalOpen(true); }}>+ เพิ่มบอท</Button>}
+            {!isAgent && <Button onClick={() => { setEditingBot(null); setNewBot(createDefaultFormState()); setIsModalOpen(true); }}>+ เพิ่มบอท</Button>}
         </div>
 
             {loading ? (
@@ -108,6 +140,50 @@ const BotsPage: React.FC = () => {
                     <Input label="ชื่อบอท" placeholder="เช่น My Awesome Bot" value={newBot.name} onChange={e => setNewBot({...newBot, name: e.target.value})} required />
                     <Input label="URL ของบอท" placeholder="เช่น https://t.me/my_bot" type="url" value={newBot.url} onChange={e => setNewBot({...newBot, url: e.target.value})} required />
                     <Input label="โทเค็นต่อครั้ง" type="number" value={newBot.tokenCost} onChange={e => setNewBot({...newBot, tokenCost: Number(e.target.value)})} required />
+
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">{t('botUsageModesLabel')}</p>
+                        <p className="text-xs text-slate-500">{t('botUsageModesHint')}</p>
+                        <div className="space-y-2 mt-2">
+                            {[
+                                { value: 'token' as UsageMode, label: t('botUsageModeToken'), description: t('botUsageModeTokenDesc') },
+                                { value: 'duration' as UsageMode, label: t('botUsageModeDuration'), description: t('botUsageModeDurationDesc') },
+                            ].map((option) => {
+                                const checked = newBot.usageModes.includes(option.value);
+                                return (
+                                    <label
+                                        key={option.value}
+                                        className={`flex items-start gap-3 rounded-lg border p-3 transition ${checked ? 'border-blue-400 bg-blue-50/60 shadow-sm' : 'border-slate-200 hover:border-blue-300'}`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                            checked={checked}
+                                            onChange={() => {
+                                                setError('');
+                                                setNewBot((prev) => {
+                                                    const hasMode = prev.usageModes.includes(option.value);
+                                                    if (hasMode) {
+                                                        if (prev.usageModes.length === 1) {
+                                                            return prev;
+                                                        }
+                                                        const nextModes = prev.usageModes.filter((mode) => mode !== option.value);
+                                                        return { ...prev, usageModes: nextModes };
+                                                    }
+                                                    return { ...prev, usageModes: [...prev.usageModes, option.value] };
+                                                });
+                                            }}
+                                            disabled={isAgent}
+                                        />
+                                        <span>
+                                            <span className="block text-sm font-medium text-slate-700">{option.label}</span>
+                                            <span className="mt-0.5 block text-xs text-slate-500">{option.description}</span>
+                                        </span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
 
                     {error && <p className="text-red-500 text-sm">{error}</p>}
 

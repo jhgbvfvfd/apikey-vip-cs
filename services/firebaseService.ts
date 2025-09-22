@@ -1,5 +1,5 @@
 
-import { Platform, Agent, Bot, ApiKey, StandaloneKey, KeyLog, IpBan, MaintenanceConfig, Application } from '../types';
+import { Platform, Agent, Bot, ApiKey, StandaloneKey, KeyLog, IpBan, MaintenanceConfig, Application, UsageMode } from '../types';
 
 // IMPORTANT: In a real application, these values should come from environment variables.
 // For this example, we are using the URL provided in the prompt.
@@ -284,9 +284,25 @@ export const deleteStandaloneKey = async(keyId: string): Promise<void> => {
     await deleteData(`standalone_keys/${keyId}`);
 }
 
+const normalizeUsageModes = (incoming?: unknown): UsageMode[] => {
+    if (Array.isArray(incoming)) {
+        const filtered = incoming.filter((mode): mode is UsageMode => mode === 'token' || mode === 'duration');
+        if (filtered.length > 0) {
+            return filtered;
+        }
+    } else if (incoming === 'token' || incoming === 'duration') {
+        return [incoming];
+    }
+
+    return ['token'];
+};
+
 export const getBots = async (): Promise<Bot[]> => {
     const data = await fetchData<Record<string, Omit<Bot, 'id'>>>('bots');
-    return firebaseObjectToArray(data);
+    return firebaseObjectToArray(data).map((bot) => ({
+        ...bot,
+        usageModes: normalizeUsageModes((bot as Bot).usageModes),
+    }));
 };
 
 export const addBot = async (bot: Omit<Bot, 'id'> & {id: string}): Promise<void> => {

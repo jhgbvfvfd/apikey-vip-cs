@@ -1,11 +1,13 @@
 
+export type UsageMode = 'token' | 'duration';
+
 export interface ApiKey {
   key: string;
   tokens_remaining: number;
   status: 'active' | 'inactive';
   createdAt: string;
   banLocked?: boolean;
-  usageMode?: 'token' | 'duration';
+  usageMode?: UsageMode;
   expiresAt?: string;
   durationDays?: number;
 }
@@ -58,6 +60,7 @@ export interface Bot {
     url: string;
     addedAt: string;
     tokenCost: number;
+    usageModes?: UsageMode[];
 }
 
 export interface Application {
