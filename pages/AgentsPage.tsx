@@ -10,6 +10,7 @@ import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import CountdownDisplay from '../components/ui/CountdownDisplay';
+import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { formatCredits, hasUnlimitedCredits } from '../utils/credits';
 
 const DEFAULT_NEW_AGENT_CREDITS = 1000;
@@ -225,7 +226,13 @@ const AgentsPage: React.FC = () => {
     const [isKeysModalOpen, setKeysModalOpen] = useState(false);
     const [isAddCreditsModalOpen, setAddCreditsModalOpen] = useState(false);
     const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-    const [newAgentData, setNewAgentData] = useState({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '' });
+    const [newAgentData, setNewAgentData] = useState({
+        username: '',
+        password: '',
+        credits: DEFAULT_NEW_AGENT_CREDITS,
+        expiresAt: '',
+        unlimitedCredits: false,
+    });
     const [creditsToAdd, setCreditsToAdd] = useState(DEFAULT_CREDIT_INCREMENT);
     const [error, setError] = useState('');
     const [query, setQuery] = useState('');
@@ -250,12 +257,15 @@ const AgentsPage: React.FC = () => {
 
         try {
             const newId = `agent_${Date.now()}`;
-            const initialCredits = Number(newAgentData.credits);
+            const unlimited = newAgentData.unlimitedCredits === true;
+            const initialCredits = unlimited ? 0 : Number(newAgentData.credits);
             let expiresAtIso: string | undefined;
 
-            if (!Number.isFinite(initialCredits) || initialCredits <= 0) {
-                setError('กรุณากรอกจำนวนเครดิตมากกว่า 0');
-                return;
+            if (!unlimited) {
+                if (!Number.isFinite(initialCredits) || initialCredits <= 0) {
+                    setError('กรุณากรอกจำนวนเครดิตมากกว่า 0');
+                    return;
+                }
             }
 
             if (newAgentData.expiresAt) {
@@ -272,19 +282,26 @@ const AgentsPage: React.FC = () => {
             }
 
             const nowIso = new Date().toISOString();
-            const initialHistoryEntry: CreditHistoryEntry = {
-                date: nowIso,
-                action: 'เครดิตเริ่มต้น',
-                amount: initialCredits,
-                balanceAfter: initialCredits,
-            };
+            const initialHistoryEntry: CreditHistoryEntry = unlimited
+                ? {
+                    date: nowIso,
+                    action: 'เปิดใช้งานเครดิตไม่จำกัด',
+                    amount: 0,
+                    balanceAfter: 0,
+                }
+                : {
+                    date: nowIso,
+                    action: 'เครดิตเริ่มต้น',
+                    amount: initialCredits,
+                    balanceAfter: initialCredits,
+                };
 
             await addAgent({
                 id: newId,
                 username: newAgentData.username,
                 password: newAgentData.password,
                 credits: initialCredits,
-                unlimitedCredits: false,
+                unlimitedCredits: unlimited,
                 createdAt: nowIso,
                 keys: {},
                 creditHistory: [initialHistoryEntry],
@@ -294,7 +311,7 @@ const AgentsPage: React.FC = () => {
             });
             refreshData();
             setAddAgentModalOpen(false);
-            setNewAgentData({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '' });
+            setNewAgentData({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '', unlimitedCredits: false });
             notify('สร้างตัวแทนเรียบร้อย');
         } catch (err) {
             setError('ไม่สามารถเพิ่มตัวแทนได้');
@@ -418,12 +435,31 @@ const AgentsPage: React.FC = () => {
                  <form onSubmit={handleAddAgent} className="space-y-4">
                     <Input label="ชื่อผู้ใช้" placeholder="เช่น agent_007" value={newAgentData.username} onChange={e => setNewAgentData({...newAgentData, username: e.target.value})} required />
                     <Input label="รหัสผ่าน" type="password" placeholder="ตั้งรหัสผ่านสำหรับตัวแทน" value={newAgentData.password} onChange={e => setNewAgentData({...newAgentData, password: e.target.value})} required />
+                    <div className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div>
+                            <p className="text-sm font-medium text-slate-700">สิทธิ์เครดิตไม่จำกัด</p>
+                            <p className="text-xs text-slate-500 mt-1">เปิดใช้งานหากต้องการให้ตัวแทนคนนี้ใช้เครดิตแบบไม่จำกัด</p>
+                        </div>
+                        <ToggleSwitch
+                            checked={newAgentData.unlimitedCredits}
+                            onChange={checked => {
+                                setNewAgentData({
+                                    ...newAgentData,
+                                    unlimitedCredits: checked,
+                                });
+                                if (checked) {
+                                    setError('');
+                                }
+                            }}
+                        />
+                    </div>
                     <Input
                         label="เครดิตเริ่มต้น"
                         type="number"
                         placeholder="เช่น 1000"
                         value={newAgentData.credits}
                         min={0}
+                        disabled={newAgentData.unlimitedCredits}
                         onChange={e => {
                             const value = Number(e.target.value);
                             setNewAgentData({
@@ -432,6 +468,9 @@ const AgentsPage: React.FC = () => {
                             });
                         }}
                     />
+                    {newAgentData.unlimitedCredits && (
+                        <p className="text-xs text-blue-600 -mt-2">ตัวแทนจะไม่ถูกจำกัดเครดิตและไม่จำเป็นต้องระบุยอดเริ่มต้น</p>
+                    )}
                     <Input
                         label="วันและเวลาหมดอายุ"
                         type="datetime-local"
