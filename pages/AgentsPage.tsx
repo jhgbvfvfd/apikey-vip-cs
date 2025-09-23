@@ -220,7 +220,7 @@ const ManageKeysModal: React.FC<{
 
 
 const AgentsPage: React.FC = () => {
-    const { agents, platforms, loading, refreshData } = useData();
+    const { agents, platforms, loading, refreshData, upsertAgent } = useData();
     const { notify, t } = useSettings();
     const [isAddAgentModalOpen, setAddAgentModalOpen] = useState(false);
     const [isHistoryModalOpen, setHistoryModalOpen] = useState(false);
@@ -297,7 +297,7 @@ const AgentsPage: React.FC = () => {
                     balanceAfter: initialCredits,
                 };
 
-            await addAgent({
+            const createdAgent: Agent = {
                 id: newId,
                 username: newAgentData.username,
                 password: newAgentData.password,
@@ -309,8 +309,13 @@ const AgentsPage: React.FC = () => {
                 status: 'active',
                 welcomeAcknowledged: false,
                 expiresAt: expiresAtIso,
+            };
+
+            await addAgent(createdAgent);
+            upsertAgent(createdAgent);
+            refreshData().catch((refreshError) => {
+                console.error('Failed to refresh data after creating agent:', refreshError);
             });
-            refreshData();
             setAddAgentModalOpen(false);
             setNewAgentData({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '', unlimitedCredits: false });
             notify('สร้างตัวแทนเรียบร้อย');

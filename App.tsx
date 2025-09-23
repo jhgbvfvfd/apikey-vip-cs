@@ -66,7 +66,8 @@ interface DataContextType {
     standaloneKeys: StandaloneKey[];
     keyLogs: KeyLog[];
     loading: boolean;
-    refreshData: () => void;
+    refreshData: () => Promise<void>;
+    upsertAgent: (agent: Agent) => void;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -380,6 +381,15 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         expiryTimers.current.set(agent.id, timeoutId);
     }, [clearExpiryTimer]);
 
+    const upsertAgent = useCallback((agent: Agent) => {
+        setAgents((prev) => {
+            const withoutAgent = prev.filter((existing) => existing.id !== agent.id);
+            return [agent, ...withoutAgent];
+        });
+
+        scheduleAgentExpiry(agent);
+    }, [scheduleAgentExpiry]);
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
@@ -469,7 +479,8 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         keyLogs,
         loading,
         refreshData: fetchData,
-    }), [agents, platforms, bots, websites, applications, standaloneKeys, keyLogs, loading, fetchData]);
+        upsertAgent,
+    }), [agents, platforms, bots, websites, applications, standaloneKeys, keyLogs, loading, fetchData, upsertAgent]);
     
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
