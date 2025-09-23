@@ -1,5 +1,5 @@
 
-import { Platform, Agent, Bot, ApiKey, StandaloneKey, KeyLog, IpBan, MaintenanceConfig, Application, UsageMode } from '../types';
+import { Platform, Agent, Bot, ApiKey, StandaloneKey, KeyLog, IpBan, MaintenanceConfig, Application, UsageMode, Website } from '../types';
 
 // IMPORTANT: In a real application, these values should come from environment variables.
 // For this example, we are using the URL provided in the prompt.
@@ -317,6 +317,28 @@ export const updateBot = async (bot: Bot): Promise<void> => {
 
 export const deleteBot = async (botId: string): Promise<void> => {
     await deleteData(`bots/${botId}`);
+};
+
+export const getWebsites = async (): Promise<Website[]> => {
+    const data = await fetchData<Record<string, Omit<Website, 'id'>>>('websites');
+    return firebaseObjectToArray(data).map((website) => ({
+        ...website,
+        usageModes: normalizeUsageModes((website as Website).usageModes),
+    }));
+};
+
+export const addWebsite = async (website: Omit<Website, 'id'> & { id: string }): Promise<void> => {
+    const { id, ...websiteData } = website;
+    await setData(`websites/${id}`, websiteData);
+};
+
+export const updateWebsite = async (website: Website): Promise<void> => {
+    const { id, ...websiteData } = website;
+    await setData(`websites/${id}`, websiteData);
+};
+
+export const deleteWebsite = async (websiteId: string): Promise<void> => {
+    await deleteData(`websites/${websiteId}`);
 };
 
 export const getApplications = async (): Promise<Application[]> => {

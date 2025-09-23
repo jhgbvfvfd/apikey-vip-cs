@@ -63,6 +63,15 @@ export interface Bot {
     usageModes?: UsageMode[];
 }
 
+export interface Website {
+    id: string;
+    name: string;
+    url: string;
+    addedAt: string;
+    tokenCost: number;
+    usageModes?: UsageMode[];
+}
+
 export interface Application {
     id: string;
     name: string;
