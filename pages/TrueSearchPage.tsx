@@ -148,24 +148,18 @@ const TrueSearchPage: React.FC = () => {
           return;
         }
 
-        const useResponse = await fetch(`${TOKEN_API_BASE}/use`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: normalizedKey, tokens: SEARCH_COST }),
-        });
-        const useData = await useResponse.json();
-        if (!useData?.ok) {
-          const message = useData?.error || 'UNKNOWN';
-          throw new Error(
-            t('trueSearchErrorDeduct').replace('%message%', message)
+        let searchResponse: Response;
+        try {
+          searchResponse = await fetch(
+            `${SEARCH_API_URL}?type=${searchType}&value=${encodeURIComponent(
+              normalizedValue
+            )}`
           );
+        } catch (err) {
+          console.error('TrueSearch network error', err);
+          throw new Error(t('trueSearchErrorNetwork'));
         }
 
-        const searchResponse = await fetch(
-          `${SEARCH_API_URL}?type=${searchType}&value=${encodeURIComponent(
-            normalizedValue
-          )}`
-        );
         if (!searchResponse.ok) {
           throw new Error(t('trueSearchErrorSearch'));
         }
@@ -187,6 +181,19 @@ const TrueSearchPage: React.FC = () => {
           records = (parsed as { results: TrueCheckRecord[] }).results;
         }
 
+        const useResponse = await fetch(`${TOKEN_API_BASE}/use`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: normalizedKey, tokens: SEARCH_COST }),
+        });
+        const useData = await useResponse.json();
+        if (!useData?.ok) {
+          const message = useData?.error || 'UNKNOWN';
+          throw new Error(
+            t('trueSearchErrorDeduct').replace('%message%', message)
+          );
+        }
+
         setResult({
           queryType: searchType,
           queryValue: normalizedValue,
@@ -200,9 +207,9 @@ const TrueSearchPage: React.FC = () => {
       } catch (err) {
         console.error('TrueSearch error', err);
         if (err instanceof Error) {
-          setError(err.message);
+          setError(err.message || t('trueSearchErrorGeneral'));
         } else {
-          setError(t('trueSearchErrorNetwork'));
+          setError(t('trueSearchErrorGeneral'));
         }
       } finally {
         setLoading(false);
