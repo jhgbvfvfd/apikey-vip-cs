@@ -1,86 +1,159 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { useData, useSettings } from '../App';
+import { useData } from '../App';
+
+type ConsoleEntryLevel = 'info' | 'warning' | 'error';
+
+interface ConsoleEntry {
+  id: string;
+  timestamp: string;
+  label: string;
+  level: ConsoleEntryLevel;
+  message: string;
+  metadata?: string;
+}
+
+const formatTimestamp = (input: string): string => {
+  const parsed = new Date(input);
+  if (Number.isNaN(parsed.getTime())) {
+    return input;
+  }
+  const two = (value: number) => value.toString().padStart(2, '0');
+  return `${parsed.getFullYear()}-${two(parsed.getMonth() + 1)}-${two(parsed.getDate())} ${two(parsed.getHours())}:${two(parsed.getMinutes())}:${two(parsed.getSeconds())}`;
+};
+
+const normalizeMetadata = (metadata?: unknown): string | undefined => {
+  if (!metadata) {
+    return undefined;
+  }
+
+  if (typeof metadata === 'string') {
+    return metadata;
+  }
+
+  try {
+    return JSON.stringify(metadata, null, 2);
+  } catch (error) {
+    return undefined;
+  }
+};
 
 const ApiConsolePage: React.FC = () => {
-  const { keyLogs, agents, loading } = useData();
-  const { t } = useSettings();
+  const { keyLogs, systemLogs, agents } = useData();
   const consoleRef = useRef<HTMLDivElement>(null);
 
-  const orderedLogs = useMemo(() => {
-    return [...keyLogs].sort(
-      (a, b) => new Date(a.usedAt).getTime() - new Date(b.usedAt).getTime(),
-    );
-  }, [keyLogs]);
+  const entries = useMemo<ConsoleEntry[]>(() => {
+    const keyEntries: ConsoleEntry[] = keyLogs.map((log) => {
+      const agent = agents.find((candidate) => candidate.id === log.agentId);
+      const username = agent?.username || 'unknown';
+      const messageParts = [
+        `agent=${username}`,
+        `key=${log.key}`,
+        `ip=${log.ip}`,
+      ];
+
+      if (typeof log.tokensUsed === 'number') {
+        messageParts.push(`tokens=-${log.tokensUsed}`);
+      }
+
+      return {
+        id: `key-${log.id}`,
+        timestamp: log.usedAt,
+        label: 'API',
+        level: 'info',
+        message: messageParts.join(' '),
+      };
+    });
+
+    const systemEntries: ConsoleEntry[] = systemLogs.map((log) => {
+      const level: ConsoleEntryLevel = log.level === 'error' || log.level === 'warning' ? log.level : 'info';
+      const label = log.event?.toUpperCase() || 'SYSTEM';
+      const metadata = normalizeMetadata(log.metadata);
+      const parts: string[] = [log.message];
+
+      if (log.ip) {
+        parts.push(`ip=${log.ip}`);
+      }
+
+      if (log.actorId) {
+        parts.push(`actor=${log.actorId}`);
+      }
+
+      if (Array.isArray(log.relatedAgentIds) && log.relatedAgentIds.length > 0) {
+        parts.push(`related=[${log.relatedAgentIds.join(',')}]`);
+      }
+
+      return {
+        id: `system-${log.id}`,
+        timestamp: log.createdAt,
+        label,
+        level,
+        message: parts.filter(Boolean).join(' ').trim(),
+        metadata,
+      };
+    });
+
+    return [...keyEntries, ...systemEntries].sort((a, b) => {
+      const aTime = new Date(a.timestamp).getTime();
+      const bTime = new Date(b.timestamp).getTime();
+
+      if (Number.isNaN(aTime) && Number.isNaN(bTime)) {
+        return a.timestamp.localeCompare(b.timestamp);
+      }
+
+      if (Number.isNaN(aTime)) {
+        return -1;
+      }
+
+      if (Number.isNaN(bTime)) {
+        return 1;
+      }
+
+      return aTime - bTime;
+    });
+  }, [agents, keyLogs, systemLogs]);
 
   useEffect(() => {
-    if (!consoleRef.current) return;
+    if (!consoleRef.current) {
+      return;
+    }
     consoleRef.current.scrollTo({
       top: consoleRef.current.scrollHeight,
       behavior: 'smooth',
     });
-  }, [orderedLogs.length]);
+  }, [entries.length]);
 
   return (
-    <div className="flex h-full flex-col bg-slate-950 text-slate-100">
-      <div className="border-b border-slate-800 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 px-5 py-5 shadow-inner">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">{t('apiConsoleTitle')}</p>
-            <h1 className="mt-2 text-2xl font-bold text-white">{t('apiConsoleDesc')}</h1>
-          </div>
-          <div className="flex items-center gap-3 rounded-full border border-slate-800 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-300 shadow-lg shadow-black/30">
-            <span className="relative inline-flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-lime-400 opacity-70"></span>
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-lime-300"></span>
-            </span>
-            {loading ? t('apiConsoleInitializing') : t('apiConsoleLive')}
-          </div>
-        </div>
-      </div>
-      <div className="relative flex-1 overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-slate-950 via-slate-950/40 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
-        <div
-          ref={consoleRef}
-          className="relative z-10 h-full overflow-y-auto bg-black/95 px-5 py-8 font-mono text-[13px] text-lime-300 shadow-inner shadow-black/40"
-        >
-          {orderedLogs.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center text-slate-400">
-              <span className="text-sm uppercase tracking-[0.35em] text-slate-500">{loading ? t('apiConsoleInitializing') : t('apiConsoleEmpty')}</span>
-            </div>
-          ) : (
-            orderedLogs.map((log) => {
-              const agent = agents.find((a) => a.id === log.agentId);
-              const timestamp = new Date(log.usedAt).toLocaleString('th-TH', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-              });
-              const tokenInfo =
-                log.tokensUsed !== undefined
-                  ? `${t('tokensUsed')}: -${log.tokensUsed}`
-                  : t('apiConsoleNoTokenUsage');
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col bg-black">
+      <div
+        ref={consoleRef}
+        className="flex-1 overflow-y-auto px-5 py-6 font-mono text-sm leading-relaxed text-lime-300"
+      >
+        {entries.map((entry) => {
+          const timestamp = formatTimestamp(entry.timestamp);
+          const levelClass = entry.level === 'error'
+            ? 'text-rose-400'
+            : entry.level === 'warning'
+              ? 'text-amber-300'
+              : 'text-lime-300';
 
-              return (
-                <div key={log.id} className="space-y-1 border-b border-white/5 pb-3 last:border-b-0">
-                  <div className="text-xs uppercase tracking-[0.35em] text-slate-600">{timestamp}</div>
-                  <div className="text-sm text-lime-300">
-                    <span className="text-slate-500">agent:</span>{' '}
-                    <span className="text-white">{agent?.username || 'unknown'}</span>{' '}
-                    <span className="text-slate-500">ip:</span>{' '}
-                    <span className="text-sky-400">{log.ip}</span>{' '}
-                    <span className="text-slate-500">key:</span>{' '}
-                    <span className="text-amber-300">{log.key}</span>
-                  </div>
-                  <div className="text-xs uppercase tracking-[0.35em] text-slate-500">{tokenInfo}</div>
-                </div>
-              );
-            })
-          )}
-        </div>
+          return (
+            <div key={entry.id} className="mb-4 whitespace-pre-wrap break-words">
+              <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+                <span>[{timestamp}]</span>
+                <span className={`tracking-[0.35em] text-slate-600`}>{entry.label}</span>
+                <span className={`${levelClass} font-semibold`}>{entry.level.toUpperCase()}</span>
+              </div>
+              <div className={`mt-1 text-sm ${levelClass}`}>
+                {entry.message}
+              </div>
+              {entry.metadata && (
+                <pre className="mt-2 max-w-full overflow-x-auto rounded border border-white/5 bg-black/60 p-3 text-[12px] leading-snug text-slate-400">
+                  {entry.metadata}
+                </pre>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

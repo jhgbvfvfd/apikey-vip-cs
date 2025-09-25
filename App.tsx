@@ -26,8 +26,8 @@ import IpBanPage from './pages/IpBanPage';
 import AgentMenusPage from './pages/AgentMenusPage';
 import AgentGenerateKeyPage from './pages/AgentGenerateKeyPage';
 import MaintenancePage from './pages/MaintenancePage';
-import { Agent, Platform, Bot, StandaloneKey, KeyLog, MaintenanceConfig, Application, Website } from './types';
-import { getPlatforms, getAgents, getBots, getWebsites, getApplications, getStandaloneKeys, getKeyLogs, getAdminPassword, setAdminPassword, getMaintenanceConfig, saveMaintenanceConfig, deleteAgent } from './services/firebaseService';
+import { Agent, Platform, Bot, StandaloneKey, KeyLog, MaintenanceConfig, Application, Website, SystemLog } from './types';
+import { getPlatforms, getAgents, getBots, getWebsites, getApplications, getStandaloneKeys, getKeyLogs, getSystemLogs, getAdminPassword, setAdminPassword, getMaintenanceConfig, saveMaintenanceConfig, deleteAgent } from './services/firebaseService';
 
 type UserRole = 'admin' | 'agent';
 interface User {
@@ -66,6 +66,7 @@ interface DataContextType {
     applications: Application[];
     standaloneKeys: StandaloneKey[];
     keyLogs: KeyLog[];
+    systemLogs: SystemLog[];
     loading: boolean;
     refreshData: () => Promise<void>;
     upsertAgent: (agent: Agent) => void;
@@ -324,6 +325,7 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     const [applications, setApplications] = useState<Application[]>([]);
     const [standaloneKeys, setStandaloneKeys] = useState<StandaloneKey[]>([]);
     const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
+    const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
     const [loading, setLoading] = useState(true);
     const expiryTimers = useRef<Map<string, number>>(new Map());
 
@@ -394,7 +396,7 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [platformsData, agentsData, botsData, websitesData, appsData, keysData, logsData] = await Promise.all([
+            const [platformsData, agentsData, botsData, websitesData, appsData, keysData, logsData, systemLogsData] = await Promise.all([
                 getPlatforms(),
                 getAgents(),
                 getBots(),
@@ -402,6 +404,7 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                 getApplications(),
                 getStandaloneKeys(),
                 getKeyLogs(),
+                getSystemLogs().catch(() => [] as SystemLog[]),
             ]);
             const now = Date.now();
             const activeAgents: Agent[] = [];
@@ -435,6 +438,7 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             setApplications(appsData);
             setStandaloneKeys(keysData);
             setKeyLogs(logsData);
+            setSystemLogs(systemLogsData);
 
             if (typeof window !== 'undefined') {
                 const activeIds = new Set(activeAgents.map((agent) => agent.id));
@@ -478,10 +482,11 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         applications,
         standaloneKeys,
         keyLogs,
+        systemLogs,
         loading,
         refreshData: fetchData,
         upsertAgent,
-    }), [agents, platforms, bots, websites, applications, standaloneKeys, keyLogs, loading, fetchData, upsertAgent]);
+    }), [agents, platforms, bots, websites, applications, standaloneKeys, keyLogs, systemLogs, loading, fetchData, upsertAgent]);
     
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

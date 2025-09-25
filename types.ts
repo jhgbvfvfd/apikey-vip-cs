@@ -80,6 +80,20 @@ export interface Application {
     tokenCost: number;
 }
 
+export type SystemLogLevel = 'info' | 'warning' | 'error';
+
+export interface SystemLog {
+    id: string;
+    createdAt: string;
+    event?: string;
+    message: string;
+    level?: SystemLogLevel;
+    actorId?: string;
+    relatedAgentIds?: string[];
+    ip?: string;
+    metadata?: Record<string, unknown>;
+}
+
 export interface KeyLog {
     id: string;
     key: string;

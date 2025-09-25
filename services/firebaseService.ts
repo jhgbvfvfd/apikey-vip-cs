@@ -1,5 +1,5 @@
 
-import { Platform, Agent, Bot, ApiKey, StandaloneKey, KeyLog, IpBan, MaintenanceConfig, Application, UsageMode, Website } from '../types';
+import { Platform, Agent, Bot, ApiKey, StandaloneKey, KeyLog, IpBan, MaintenanceConfig, Application, UsageMode, Website, SystemLog } from '../types';
 
 // IMPORTANT: In a real application, these values should come from environment variables.
 // For this example, we are using the URL provided in the prompt.
@@ -245,9 +245,13 @@ export const deleteAgent = async(agentId: string): Promise<void> => {
 
     const idsToDelete = new Set(affectedAgents.map((agent) => agent.id));
     let logs: KeyLog[] = [];
+    let systemLogs: SystemLog[] = [];
 
     try {
-        logs = await getKeyLogs();
+        [logs, systemLogs] = await Promise.all([
+            getKeyLogs(),
+            getSystemLogs().catch(() => [] as SystemLog[]),
+        ]);
     } catch (error) {
         console.error('Failed to fetch key logs during agent deletion:', error);
     }
@@ -256,13 +260,25 @@ export const deleteAgent = async(agentId: string): Promise<void> => {
         .filter((log) => idsToDelete.has(log.agentId))
         .map((log) => deleteData(`key_logs/${log.id}`).catch(() => undefined));
 
+    const systemLogDeletions = systemLogs
+        .filter((log) => {
+            if (log.actorId && idsToDelete.has(log.actorId)) {
+                return true;
+            }
+            if (Array.isArray(log.relatedAgentIds)) {
+                return log.relatedAgentIds.some((id) => idsToDelete.has(id));
+            }
+            return false;
+        })
+        .map((log) => deleteData(`system_logs/${log.id}`).catch(() => undefined));
+
     const ipBanDeletions = Array.from(idsToDelete).map((id) =>
         deleteData(`ip_bans/${id}`).catch(() => undefined),
     );
 
     const agentDeletions = Array.from(idsToDelete).map((id) => deleteData(`agents/${id}`));
 
-    await Promise.all([...logDeletions, ...ipBanDeletions, ...agentDeletions]);
+    await Promise.all([...logDeletions, ...systemLogDeletions, ...ipBanDeletions, ...agentDeletions]);
 }
 
 export const getStandaloneKeys = async (): Promise<StandaloneKey[]> => {
@@ -367,6 +383,22 @@ export const getKeyLogs = async (): Promise<KeyLog[]> => {
 
 export const recordKeyLog = async (log: Omit<KeyLog, 'id'>): Promise<void> => {
     await fetch(`${FIREBASE_URL}key_logs.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(log),
+    });
+};
+
+export const getSystemLogs = async (): Promise<SystemLog[]> => {
+    const data = await fetchData<Record<string, Omit<SystemLog, 'id'>>>('system_logs');
+    return firebaseObjectToArray(data).map((entry) => ({
+        ...entry,
+        relatedAgentIds: Array.isArray(entry.relatedAgentIds) ? entry.relatedAgentIds : [],
+    }));
+};
+
+export const recordSystemLog = async (log: Omit<SystemLog, 'id'>): Promise<void> => {
+    await fetch(`${FIREBASE_URL}system_logs.json`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(log),
