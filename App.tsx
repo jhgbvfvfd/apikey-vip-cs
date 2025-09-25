@@ -26,6 +26,7 @@ import IpBanPage from './pages/IpBanPage';
 import AgentMenusPage from './pages/AgentMenusPage';
 import AgentGenerateKeyPage from './pages/AgentGenerateKeyPage';
 import MaintenancePage from './pages/MaintenancePage';
+import TrueSearchPage from './pages/TrueSearchPage';
 import { Agent, Platform, Bot, StandaloneKey, KeyLog, MaintenanceConfig, Application, Website, SystemLog } from './types';
 import { getPlatforms, getAgents, getBots, getWebsites, getApplications, getStandaloneKeys, getKeyLogs, getSystemLogs, getAdminPassword, setAdminPassword, getMaintenanceConfig, saveMaintenanceConfig, deleteAgent } from './services/firebaseService';
 
@@ -661,6 +662,7 @@ const AdminRoutes: React.FC = () => (
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/maintenance" element={<MaintenancePage />} />
         <Route path="/api-console" element={<ApiConsolePage />} />
+        <Route path="/true-search" element={<TrueSearchPage />} />
         <Route path="/logs" element={<KeyLogsPage />} />
         <Route path="/ip-bans" element={<IpBanPage />} />
         <Route path="/settings" element={<SettingsPage />} />
