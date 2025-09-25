@@ -21,6 +21,7 @@ import SettingsPage from './pages/SettingsPage';
 import AgentProfilePage from './pages/AgentProfilePage';
 import AgentUsagePage from './pages/AgentUsagePage';
 import KeyLogsPage from './pages/KeyLogsPage';
+import ApiConsolePage from './pages/ApiConsolePage';
 import IpBanPage from './pages/IpBanPage';
 import AgentMenusPage from './pages/AgentMenusPage';
 import AgentGenerateKeyPage from './pages/AgentGenerateKeyPage';
@@ -654,6 +655,7 @@ const AdminRoutes: React.FC = () => (
         <Route path="/api-guide" element={<ApiGuidePage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/maintenance" element={<MaintenancePage />} />
+        <Route path="/api-console" element={<ApiConsolePage />} />
         <Route path="/logs" element={<KeyLogsPage />} />
         <Route path="/ip-bans" element={<IpBanPage />} />
         <Route path="/settings" element={<SettingsPage />} />

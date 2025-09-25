@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import AdminSidebar from './Sidebar';
 import AgentSidebar from './AgentSidebar';
 import { useAuth } from '../../App';
@@ -72,6 +73,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [acknowledging, setAcknowledging] = useState(false);
   const { user, updateUserData } = useAuth();
   const agent = user?.role === 'agent' ? user.data as Agent : null;
+  const location = useLocation();
+  const isConsoleView = location.pathname === '/api-console';
 
   useEffect(() => {
     if (agent && !agent.welcomeAcknowledged) {
@@ -129,8 +132,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </div>
                 )}
             </header>
-            <main className="flex-1 p-3 md:p-4 overflow-y-auto overflow-x-hidden">
-                <div className="mx-auto w-full max-w-3xl">
+            <main
+              className={`flex-1 overflow-y-auto overflow-x-hidden ${
+                isConsoleView ? 'p-0' : 'p-3 md:p-4'
+              }`}
+            >
+                <div className={`mx-auto w-full ${isConsoleView ? 'max-w-none' : 'max-w-3xl'}`}>
                     {children}
                 </div>
             </main>

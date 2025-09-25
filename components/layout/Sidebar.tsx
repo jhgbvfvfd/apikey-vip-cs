@@ -20,6 +20,7 @@ import {
   MegaphoneIcon,
   DevicePhoneMobileIcon,
   GlobeAltIcon,
+  CommandLineIcon,
 } from '@heroicons/react/24/outline';
 
 const NavIcon: React.FC<{ icon: React.ComponentType<React.SVGProps<SVGSVGElement>> }> = ({ icon: Icon }) => (
@@ -48,6 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
       { to: '/apps', text: t('apps'), icon: DevicePhoneMobileIcon },
       { to: '/api-guide', text: t('apiGuide'), icon: BookOpenIcon },
       { to: '/reports', text: t('reports'), icon: ChartBarIcon },
+      { to: '/api-console', text: t('apiConsole'), icon: CommandLineIcon },
       { to: '/logs', text: t('logs'), icon: DocumentMagnifyingGlassIcon },
       { to: '/ip-bans', text: t('ipBan'), icon: NoSymbolIcon },
       { to: '/settings', text: t('settings'), icon: Cog6ToothIcon },
