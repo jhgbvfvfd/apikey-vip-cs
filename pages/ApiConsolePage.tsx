@@ -37,38 +37,62 @@ const normalizeMetadata = (metadata?: unknown): string | undefined => {
   }
 };
 
+const isWithinToday = (timestamp?: string | null): boolean => {
+  if (!timestamp) {
+    return false;
+  }
+
+  const parsed = new Date(timestamp);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
+  return parsed.getTime() >= startOfDay.getTime() && parsed.getTime() <= endOfDay.getTime();
+};
+
 const ApiConsolePage: React.FC = () => {
   const { keyLogs, systemLogs, agents } = useData();
   const consoleRef = useRef<HTMLDivElement>(null);
 
   const entries = useMemo<ConsoleEntry[]>(() => {
-    const keyEntries: ConsoleEntry[] = keyLogs.map((log) => {
-      const agent = agents.find((candidate) => candidate.id === log.agentId);
-      const username = agent?.username || 'unknown';
-      const messageParts = [
-        `agent=${username}`,
-        `key=${log.key}`,
-        `ip=${log.ip}`,
-      ];
+    const keyEntries: ConsoleEntry[] = keyLogs
+      .filter((log) => isWithinToday(log.usedAt))
+      .map((log) => {
+        const agent = agents.find((candidate) => candidate.id === log.agentId);
+        const username = agent?.username || 'unknown';
+        const messageParts = [
+          `agent=${username}`,
+          `key=${log.key}`,
+          `ip=${log.ip}`,
+        ];
 
-      if (typeof log.tokensUsed === 'number') {
-        messageParts.push(`tokens=-${log.tokensUsed}`);
-      }
+        if (typeof log.tokensUsed === 'number') {
+          messageParts.push(`tokens=-${log.tokensUsed}`);
+        }
 
-      return {
-        id: `key-${log.id}`,
-        timestamp: log.usedAt,
-        label: 'API',
-        level: 'info',
-        message: messageParts.join(' '),
-      };
-    });
+        return {
+          id: `key-${log.id}`,
+          timestamp: log.usedAt,
+          label: 'API',
+          level: 'info',
+          message: messageParts.join(' '),
+        };
+      });
 
-    const systemEntries: ConsoleEntry[] = systemLogs.map((log) => {
-      const level: ConsoleEntryLevel = log.level === 'error' || log.level === 'warning' ? log.level : 'info';
-      const label = log.event?.toUpperCase() || 'SYSTEM';
-      const metadata = normalizeMetadata(log.metadata);
-      const parts: string[] = [log.message];
+    const systemEntries: ConsoleEntry[] = systemLogs
+      .filter((log) => isWithinToday(log.createdAt))
+      .map((log) => {
+        const level: ConsoleEntryLevel = log.level === 'error' || log.level === 'warning' ? log.level : 'info';
+        const label = log.event?.toUpperCase() || 'SYSTEM';
+        const metadata = normalizeMetadata(log.metadata);
+        const parts: string[] = [log.message];
 
       if (log.ip) {
         parts.push(`ip=${log.ip}`);
@@ -82,15 +106,15 @@ const ApiConsolePage: React.FC = () => {
         parts.push(`related=[${log.relatedAgentIds.join(',')}]`);
       }
 
-      return {
-        id: `system-${log.id}`,
-        timestamp: log.createdAt,
-        label,
-        level,
-        message: parts.filter(Boolean).join(' ').trim(),
-        metadata,
-      };
-    });
+        return {
+          id: `system-${log.id}`,
+          timestamp: log.createdAt,
+          label,
+          level,
+          message: parts.filter(Boolean).join(' ').trim(),
+          metadata,
+        };
+      });
 
     return [...keyEntries, ...systemEntries].sort((a, b) => {
       const aTime = new Date(a.timestamp).getTime();
