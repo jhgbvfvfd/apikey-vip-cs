@@ -1,5 +1,6 @@
 
-import { Platform, Agent, Bot, ApiKey, StandaloneKey, KeyLog, IpBan, MaintenanceConfig, Application, UsageMode, Website, SystemLog } from '../types';
+import { Platform, Agent, Bot, ApiKey, StandaloneKey, KeyLog, IpBan, MaintenanceConfig, Application, UsageMode, Website, SystemLog, AdminCredentials } from '../types';
+import { ADMIN_PASSWORD_TTL_MS, buildAdminCredentialsRecord, generateAdminPassword, isAdminPasswordExpired } from '../utils/password';
 
 // IMPORTANT: In a real application, these values should come from environment variables.
 // For this example, we are using the URL provided in the prompt.
@@ -37,6 +38,8 @@ async function deleteData(path: string): Promise<void> {
 
 type AdminPasswordSource = 'remote' | 'local' | 'default';
 
+interface AdminPasswordRecord extends AdminCredentials {}
+
 const getCachedAdminPassword = (): string | null => {
     if (typeof window === 'undefined') {
         return null;
@@ -50,13 +53,49 @@ const cacheAdminPassword = (password: string) => {
     }
 };
 
-export const getAdminPassword = async (): Promise<{ password: string; source: AdminPasswordSource }> => {
+const fetchAdminPasswordRecord = async (): Promise<AdminPasswordRecord | null> => {
     try {
-        const data = await fetchData<{ password?: string } | null>('admin_credentials');
+        const data = await fetchData<Partial<AdminPasswordRecord> | null>('admin_credentials');
         if (data && typeof data.password === 'string' && data.password.trim().length > 0) {
-            cacheAdminPassword(data.password);
-            return { password: data.password, source: 'remote' };
+            return {
+                password: data.password,
+                rotatedAt: typeof data.rotatedAt === 'string' ? data.rotatedAt : '',
+            };
         }
+    } catch (error) {
+        console.error('Failed to fetch admin password:', error);
+    }
+    return null;
+};
+
+const saveAdminPasswordRecord = async (record: AdminPasswordRecord): Promise<void> => {
+    await setData('admin_credentials', record);
+    cacheAdminPassword(record.password);
+};
+
+const ensureFreshAdminPassword = async (record: AdminPasswordRecord | null): Promise<AdminPasswordRecord> => {
+    if (!record || !record.password || isAdminPasswordExpired(record.rotatedAt)) {
+        const password = generateAdminPassword();
+        const rotatedRecord = buildAdminCredentialsRecord(password);
+        await saveAdminPasswordRecord(rotatedRecord);
+        return rotatedRecord;
+    }
+
+    if (record.rotatedAt) {
+        return record;
+    }
+
+    const refreshedRecord = buildAdminCredentialsRecord(record.password);
+    await saveAdminPasswordRecord(refreshedRecord);
+    return refreshedRecord;
+};
+
+export const getAdminPassword = async (): Promise<{ password: string; source: AdminPasswordSource; rotatedAt?: string; expiresAt?: string }> => {
+    try {
+        const record = await ensureFreshAdminPassword(await fetchAdminPasswordRecord());
+        const expiresAt = new Date(new Date(record.rotatedAt).getTime() + ADMIN_PASSWORD_TTL_MS).toISOString();
+        cacheAdminPassword(record.password);
+        return { password: record.password, source: 'remote', rotatedAt: record.rotatedAt, expiresAt };
     } catch (error) {
         console.error('Failed to fetch admin password:', error);
     }
@@ -70,8 +109,8 @@ export const getAdminPassword = async (): Promise<{ password: string; source: Ad
 };
 
 export const setAdminPassword = async (password: string): Promise<void> => {
-    await setData('admin_credentials', { password });
-    cacheAdminPassword(password);
+    const record = buildAdminCredentialsRecord(password);
+    await saveAdminPasswordRecord(record);
 };
 
 

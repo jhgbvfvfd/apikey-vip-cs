@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { Buffer } from 'buffer';
+import { buildAdminCredentialsRecord, generateAdminPassword, isAdminPasswordExpired, AdminCredentialsRecord } from '../../utils/password';
 
 const FIREBASE_URL = 'https://fgddf-a6f13-default-rtdb.firebaseio.com/';
 const MAX_INITIAL_CREDITS = 1_000_000;
@@ -22,19 +23,56 @@ const jsonResponse = (statusCode: number, data: Record<string, unknown>) => ({
 
 const ADMIN_USERNAME = 'admin';
 
-const fetchAdminPassword = async (): Promise<string> => {
+const loadAdminPasswordRecord = async (): Promise<AdminCredentialsRecord | null> => {
   try {
     const response = await fetch(`${FIREBASE_URL}admin_credentials.json`);
     if (response.ok) {
-      const data: { password?: string } | null = await response.json();
+      const data: Partial<AdminCredentialsRecord> | null = await response.json();
       if (data && typeof data.password === 'string' && data.password.trim().length > 0) {
-        return data.password;
+        return {
+          password: data.password,
+          rotatedAt: typeof data.rotatedAt === 'string' ? data.rotatedAt : '',
+        };
       }
     }
   } catch (error) {
     console.error('Failed to fetch admin password', error);
   }
+  return null;
+};
 
+const saveAdminPasswordRecord = async (record: AdminCredentialsRecord): Promise<void> => {
+  await fetch(`${FIREBASE_URL}admin_credentials.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(record),
+  });
+};
+
+const ensureAdminPasswordRecord = async (): Promise<AdminCredentialsRecord> => {
+  const existingRecord = await loadAdminPasswordRecord();
+  if (!existingRecord || !existingRecord.password || isAdminPasswordExpired(existingRecord.rotatedAt)) {
+    const freshRecord = buildAdminCredentialsRecord(generateAdminPassword());
+    await saveAdminPasswordRecord(freshRecord);
+    return freshRecord;
+  }
+
+  if (existingRecord.rotatedAt) {
+    return existingRecord;
+  }
+
+  const refreshedRecord = buildAdminCredentialsRecord(existingRecord.password);
+  await saveAdminPasswordRecord(refreshedRecord);
+  return refreshedRecord;
+};
+
+const fetchAdminPassword = async (): Promise<string> => {
+  try {
+    const record = await ensureAdminPasswordRecord();
+    return record.password;
+  } catch (error) {
+    console.error('Failed to ensure admin password record', error);
+  }
   return 'admin';
 };
 

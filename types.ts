@@ -1,6 +1,11 @@
 
 export type UsageMode = 'token' | 'duration';
 
+export interface AdminCredentials {
+  password: string;
+  rotatedAt: string;
+}
+
 export interface ApiKey {
   key: string;
   tokens_remaining: number;
