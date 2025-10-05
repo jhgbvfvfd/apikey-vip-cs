@@ -232,6 +232,7 @@
 
       .cosmic-main-inner {
         width: 100%;
+        min-height: 100%;
       }
 
       @media (max-width: 768px) {
@@ -285,7 +286,22 @@
 
         .cosmic-main-inner {
           max-width: 100% !important;
-          padding: 1rem 1.1rem 1.5rem;
+          padding: 0 !important;
+        }
+
+        .cosmic-main-inner > * {
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+        }
+
+        .cosmic-card {
+          border-radius: 0 !important;
+          border-left-width: 0 !important;
+          border-right-width: 0 !important;
+        }
+
+        .cosmic-card__body {
+          border-radius: 0 !important;
         }
 
         .credit-pill {
@@ -338,7 +354,7 @@
         }
 
         .cosmic-main-inner {
-          padding: 0.9rem 0.95rem 1.25rem;
+          padding: 0 !important;
         }
 
         .credit-pill {
@@ -371,7 +387,7 @@
         }
 
         .cosmic-main-inner {
-          padding: 0.8rem 0.85rem 1.15rem;
+          padding: 0 !important;
         }
 
         .cosmic-sidebar {

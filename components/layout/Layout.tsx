@@ -141,7 +141,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 isConsoleView ? 'p-0' : 'p-2 sm:p-3 md:p-4'
               }`}
             >
-                <div className={`cosmic-main-inner mx-auto w-full ${isConsoleView ? 'max-w-none' : 'max-w-4xl'} text-[var(--space-text-secondary)]`}
+                <div
+                    className={`cosmic-main-inner mx-auto w-full ${
+                        isConsoleView ? 'max-w-none' : 'max-w-full md:max-w-4xl xl:max-w-5xl'
+                    } text-[var(--space-text-secondary)]`}
                 >
                     {children}
                 </div>

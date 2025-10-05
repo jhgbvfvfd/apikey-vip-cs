@@ -13,12 +13,12 @@ const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => {
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border border-[rgba(138,178,255,0.25)] bg-[rgba(18,22,52,0.78)] text-[var(--space-text-primary)] shadow-[0_25px_45px_rgba(10,0,50,0.35)] backdrop-blur-2xl ${interactiveClasses} ${className}`}
+      className={`cosmic-card relative overflow-hidden rounded-2xl border border-[rgba(138,178,255,0.25)] bg-[rgba(18,22,52,0.78)] text-[var(--space-text-primary)] shadow-[0_25px_45px_rgba(10,0,50,0.35)] backdrop-blur-2xl ${interactiveClasses} ${className}`}
       onClick={onClick}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(108,128,255,0.25),transparent_60%)]" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-[rgba(93,142,255,0.4)] to-transparent" />
-      <div className="relative">
+      <div className="cosmic-card__body relative">
         {children}
       </div>
     </div>
