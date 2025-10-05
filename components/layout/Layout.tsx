@@ -15,7 +15,10 @@ interface LayoutProps {
 }
 
 const HamburgerIcon: React.FC<{ onClick: () => void }> = ({ onClick }) => (
-    <button onClick={onClick} className="p-2 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 md:hidden">
+    <button
+        onClick={onClick}
+        className="md:hidden inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[rgba(138,176,255,0.25)] bg-[rgba(20,26,60,0.75)] text-[rgba(180,206,255,0.8)] shadow-[0_12px_25px_rgba(10,0,40,0.35)] transition hover:border-[rgba(160,198,255,0.5)] hover:text-white"
+    >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
@@ -105,29 +108,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <>
-        <div className="flex h-screen bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
-        {user?.role === 'admin' ? 
+        <div className="cosmic-shell relative flex h-screen text-[var(--space-text-primary)]">
+        {user?.role === 'admin' ?
             <AdminSidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} /> :
             <AgentSidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
         }
-        <div className="flex-1 flex flex-col overflow-x-hidden">
-            <header className="p-1.5 border-b border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 flex items-center">
+        <div className="relative flex flex-1 flex-col overflow-x-hidden">
+            <header className="relative z-10 flex items-center gap-4 border-b border-[rgba(120,150,255,0.25)] bg-[rgba(12,18,42,0.75)] px-4 py-3 shadow-[0_20px_45px_rgba(8,0,35,0.4)] backdrop-blur-xl">
                 <HamburgerIcon onClick={() => setIsSidebarOpen(true)} />
 
                 {agent && (
-                    <div 
-                        className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ml-auto"
+                    <div
+                        className="ml-auto flex items-center gap-3 rounded-2xl border border-[rgba(138,176,255,0.35)] bg-[rgba(24,30,70,0.65)] px-4 py-2 text-[rgba(177,202,255,0.85)] shadow-[0_15px_30px_rgba(8,0,40,0.35)] transition hover:border-[rgba(150,190,255,0.55)] hover:text-white"
                         onClick={() => setHistoryModalOpen(true)}
                         >
-                        <div className="text-yellow-500">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                        <div className="relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-[rgba(34,40,90,0.85)] text-[rgba(255,212,128,0.9)] shadow-[0_12px_25px_rgba(20,0,60,0.45)]">
+                             <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,178,56,0.55),transparent_65%)]" />
+                             <svg xmlns="http://www.w3.org/2000/svg" className="relative h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M8.433 7.418c.158-.103.346-.196.567-.267v1.698a2.5 2.5 0 00-1.162-.328zM11.567 7.151v-1.698c.22.071.409.164.567.267a2.5 2.5 0 00-1.134 1.431z" />
                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v.518a2.5 2.5 0 00-2.5 2.482V11a2.5 2.5 0 002.5 2.5h.171a2.5 2.5 0 002.329-1.951l.006-.008a2.5 2.5 0 00-2.335-3.043V5z" clipRule="evenodd" />
                             </svg>
                         </div>
-                        <div>
-                            <p className="text-xs font-medium text-slate-500 hidden sm:block">เครดิต</p>
-                            <p className="text-base font-bold text-blue-600">{formatCredits(agent)}</p>
+                        <div className="text-right">
+                            <p className="hidden text-xs font-medium uppercase tracking-[0.3em] text-[rgba(167,196,255,0.6)] sm:block">เครดิต</p>
+                            <p className="text-lg font-bold text-white">{formatCredits(agent)}</p>
                         </div>
                     </div>
                 )}
@@ -137,7 +141,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 isConsoleView ? 'p-0' : 'p-3 md:p-4'
               }`}
             >
-                <div className={`mx-auto w-full ${isConsoleView ? 'max-w-none' : 'max-w-3xl'}`}>
+                <div className={`mx-auto w-full ${isConsoleView ? 'max-w-none' : 'max-w-4xl'} text-[var(--space-text-secondary)]`}
+                >
                     {children}
                 </div>
             </main>

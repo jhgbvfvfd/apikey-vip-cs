@@ -23,40 +23,40 @@ const LoadingState: React.FC<LoadingStateProps> = ({
     return (
         <div
             className={cx(
-                'relative isolate flex flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border border-slate-200/70 bg-white/80 px-8 py-10 text-center shadow-xl shadow-blue-500/10 backdrop-blur-sm transition-colors dark:border-slate-700/60 dark:bg-slate-900/60',
-                compact && 'rounded-xl px-5 py-6 shadow-lg',
+                'relative isolate flex flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border border-[rgba(130,160,255,0.3)] bg-[rgba(14,18,42,0.85)] px-8 py-10 text-center shadow-[0_25px_45px_rgba(10,0,50,0.35)] backdrop-blur-xl transition-colors',
+                compact && 'rounded-xl px-5 py-6 shadow-[0_18px_35px_rgba(10,0,45,0.4)]',
                 className,
             )}
         >
-            <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-blue-500/15 via-transparent to-cyan-500/10" />
-            <div className="pointer-events-none absolute -top-12 h-32 w-32 rounded-full bg-blue-400/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-16 right-0 h-36 w-36 rounded-full bg-cyan-400/20 blur-3xl" />
+            <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(126,92,255,0.3),transparent_65%)]" />
+            <div className="pointer-events-none absolute -top-12 h-32 w-32 rounded-full bg-[rgba(255,119,205,0.25)] blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-16 right-0 h-36 w-36 rounded-full bg-[rgba(57,194,255,0.22)] blur-3xl" />
             <div className="relative flex items-center justify-center">
                 <div className="absolute -inset-6 rounded-full bg-gradient-to-tr from-blue-500/20 via-cyan-400/20 to-indigo-500/20 blur-3xl" />
                 <div className="relative flex items-center justify-center">
                     <span
                         className={cx(
-                            'block rounded-full border border-transparent border-t-blue-500 border-r-blue-400 border-b-blue-300/70 border-l-blue-200/50 shadow-[0_0_25px_rgba(59,130,246,0.35)] animate-spin',
+                            'block rounded-full border border-transparent border-t-[rgba(123,92,255,0.85)] border-r-[rgba(72,205,255,0.8)] border-b-[rgba(255,120,200,0.6)] border-l-[rgba(86,150,255,0.7)] shadow-[0_0_30px_rgba(120,90,255,0.45)] animate-spin',
                             spinnerSize,
                         )}
                     />
                     <span
                         className={cx(
-                            'absolute rounded-full bg-white/90 shadow-inner shadow-blue-500/20 dark:bg-slate-950/80',
+                            'absolute rounded-full bg-[rgba(8,11,28,0.85)] shadow-inner shadow-[0_0_18px_rgba(132,162,255,0.35)]',
                             innerSize,
                         )}
                     />
-                    <span className="absolute -bottom-1 h-2 w-2 rounded-full bg-gradient-to-r from-blue-400 via-cyan-400 to-indigo-500 shadow-[0_0_12px_rgba(59,130,246,0.65)]" />
+                    <span className="absolute -bottom-1 h-2 w-2 rounded-full bg-gradient-to-r from-[rgba(252,117,235,0.85)] via-[rgba(123,92,255,0.9)] to-[rgba(46,216,255,0.9)] shadow-[0_0_14px_rgba(123,92,255,0.7)]" />
                 </div>
             </div>
             <div className="space-y-1">
-                <p className={cx('font-semibold tracking-wide text-blue-600 dark:text-blue-300', labelSize)}>{label}</p>
+                <p className={cx('font-semibold tracking-[0.12em] uppercase text-[rgba(146,182,255,0.95)]', labelSize)}>{label}</p>
                 {helperText ? (
-                    <p className={cx('text-slate-500 dark:text-slate-400', helperSize)}>{helperText}</p>
+                    <p className={cx('text-[rgba(192,210,255,0.75)]', helperSize)}>{helperText}</p>
                 ) : null}
             </div>
-            <div className="pointer-events-none absolute inset-x-6 top-3 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-8 bottom-4 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-6 top-3 h-px bg-gradient-to-r from-transparent via-[rgba(118,182,255,0.55)] to-transparent" />
+            <div className="pointer-events-none absolute inset-x-8 bottom-4 h-px bg-gradient-to-r from-transparent via-[rgba(255,120,205,0.45)] to-transparent" />
         </div>
     );
 };
