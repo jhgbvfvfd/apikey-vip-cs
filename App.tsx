@@ -9,6 +9,7 @@ import DashboardPage from './pages/DashboardPage';
 import PlatformsPage from './pages/PlatformsPage';
 import AgentsPage from './pages/AgentsPage';
 import BotsPage from './pages/BotsPage';
+import WebsitesPage from './pages/WebsitesPage';
 import AppsPage from './pages/AppsPage';
 import ApiGuidePage from './pages/ApiGuidePage';
 import GenerateKeyPage from './pages/GenerateKeyPage';
@@ -20,13 +21,14 @@ import SettingsPage from './pages/SettingsPage';
 import AgentProfilePage from './pages/AgentProfilePage';
 import AgentUsagePage from './pages/AgentUsagePage';
 import KeyLogsPage from './pages/KeyLogsPage';
+import ApiConsolePage from './pages/ApiConsolePage';
 import IpBanPage from './pages/IpBanPage';
 import AgentMenusPage from './pages/AgentMenusPage';
 import AgentGenerateKeyPage from './pages/AgentGenerateKeyPage';
-import AgentAgentsPage from './pages/AgentAgentsPage';
 import MaintenancePage from './pages/MaintenancePage';
-import { Agent, Platform, Bot, StandaloneKey, KeyLog, MaintenanceConfig, Application } from './types';
-import { getPlatforms, getAgents, getBots, getApplications, getStandaloneKeys, getKeyLogs, getAdminPassword, setAdminPassword, getMaintenanceConfig, saveMaintenanceConfig, deleteAgent } from './services/firebaseService';
+import TrueSearchPage from './pages/TrueSearchPage';
+import { Agent, Platform, Bot, StandaloneKey, KeyLog, MaintenanceConfig, Application, Website, SystemLog } from './types';
+import { getPlatforms, getAgents, getBots, getWebsites, getApplications, getStandaloneKeys, getKeyLogs, getSystemLogs, getAdminPassword, setAdminPassword, getMaintenanceConfig, saveMaintenanceConfig, deleteAgent } from './services/firebaseService';
 
 type UserRole = 'admin' | 'agent';
 interface User {
@@ -61,11 +63,14 @@ interface DataContextType {
     agents: Agent[];
     platforms: Platform[];
     bots: Bot[];
+    websites: Website[];
     applications: Application[];
     standaloneKeys: StandaloneKey[];
     keyLogs: KeyLog[];
+    systemLogs: SystemLog[];
     loading: boolean;
-    refreshData: () => void;
+    refreshData: () => Promise<void>;
+    upsertAgent: (agent: Agent) => void;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -317,9 +322,11 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     const [agents, setAgents] = useState<Agent[]>([]);
     const [platforms, setPlatforms] = useState<Platform[]>([]);
     const [bots, setBots] = useState<Bot[]>([]);
+    const [websites, setWebsites] = useState<Website[]>([]);
     const [applications, setApplications] = useState<Application[]>([]);
     const [standaloneKeys, setStandaloneKeys] = useState<StandaloneKey[]>([]);
     const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
+    const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
     const [loading, setLoading] = useState(true);
     const expiryTimers = useRef<Map<string, number>>(new Map());
 
@@ -378,16 +385,27 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         expiryTimers.current.set(agent.id, timeoutId);
     }, [clearExpiryTimer]);
 
+    const upsertAgent = useCallback((agent: Agent) => {
+        setAgents((prev) => {
+            const withoutAgent = prev.filter((existing) => existing.id !== agent.id);
+            return [agent, ...withoutAgent];
+        });
+
+        scheduleAgentExpiry(agent);
+    }, [scheduleAgentExpiry]);
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [platformsData, agentsData, botsData, appsData, keysData, logsData] = await Promise.all([
+            const [platformsData, agentsData, botsData, websitesData, appsData, keysData, logsData, systemLogsData] = await Promise.all([
                 getPlatforms(),
                 getAgents(),
                 getBots(),
+                getWebsites(),
                 getApplications(),
                 getStandaloneKeys(),
                 getKeyLogs(),
+                getSystemLogs().catch(() => [] as SystemLog[]),
             ]);
             const now = Date.now();
             const activeAgents: Agent[] = [];
@@ -417,9 +435,11 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             setPlatforms(platformsData);
             setAgents(activeAgents);
             setBots(botsData);
+            setWebsites(websitesData);
             setApplications(appsData);
             setStandaloneKeys(keysData);
             setKeyLogs(logsData);
+            setSystemLogs(systemLogsData);
 
             if (typeof window !== 'undefined') {
                 const activeIds = new Set(activeAgents.map((agent) => agent.id));
@@ -459,12 +479,15 @@ const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         agents,
         platforms,
         bots,
+        websites,
         applications,
         standaloneKeys,
         keyLogs,
+        systemLogs,
         loading,
         refreshData: fetchData,
-    }), [agents, platforms, bots, applications, standaloneKeys, keyLogs, loading, fetchData]);
+        upsertAgent,
+    }), [agents, platforms, bots, websites, applications, standaloneKeys, keyLogs, systemLogs, loading, fetchData, upsertAgent]);
     
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
@@ -633,10 +656,13 @@ const AdminRoutes: React.FC = () => (
         <Route path="/agent-menus" element={<AgentMenusPage />} />
         <Route path="/generate-key" element={<GenerateKeyPage />} />
         <Route path="/bots" element={<BotsPage />} />
+        <Route path="/websites" element={<WebsitesPage />} />
         <Route path="/apps" element={<AppsPage />} />
         <Route path="/api-guide" element={<ApiGuidePage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/maintenance" element={<MaintenancePage />} />
+        <Route path="/api-console" element={<ApiConsolePage />} />
+        <Route path="/true-search" element={<TrueSearchPage />} />
         <Route path="/logs" element={<KeyLogsPage />} />
         <Route path="/ip-bans" element={<IpBanPage />} />
         <Route path="/settings" element={<SettingsPage />} />
@@ -651,9 +677,9 @@ const AgentRoutes: React.FC = () => (
         <Route path="/my-keys" element={<AgentKeysPage />} />
         <Route path="/generate-key" element={<AgentGenerateKeyPage />} />
         <Route path="/bots" element={<BotsPage />} />
+        <Route path="/websites" element={<WebsitesPage />} />
         <Route path="/apps" element={<AppsPage />} />
         <Route path="/profile" element={<AgentProfilePage />} />
-        <Route path="/agents" element={<AgentAgentsPage />} />
         <Route path="/usage" element={<AgentUsagePage />} />
         <Route path="/logs" element={<KeyLogsPage />} />
         <Route path="/ip-bans" element={<IpBanPage />} />

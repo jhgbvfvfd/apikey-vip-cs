@@ -1,9 +1,20 @@
 
+export type UsageMode = 'token' | 'duration';
+
+export interface AdminCredentials {
+  password: string;
+  rotatedAt: string;
+}
+
 export interface ApiKey {
   key: string;
   tokens_remaining: number;
   status: 'active' | 'inactive';
   createdAt: string;
+  banLocked?: boolean;
+  usageMode?: UsageMode;
+  expiresAt?: string;
+  durationDays?: number;
 }
 
 export interface CreditHistoryEntry {
@@ -18,6 +29,7 @@ export interface Agent {
   username: string;
   password?: string;
   credits: number;
+  unlimitedCredits?: boolean;
   keys?: {
     [platformId: string]: ApiKey[];
   };
@@ -25,6 +37,7 @@ export interface Agent {
   creditHistory?: CreditHistoryEntry[];
   user?: null; // Added for future use
   status?: 'active' | 'suspended' | 'banned';
+  banLocked?: boolean;
   ipBanEnabled?: boolean;
   parentId?: string;
   welcomeAcknowledged?: boolean;
@@ -52,6 +65,16 @@ export interface Bot {
     url: string;
     addedAt: string;
     tokenCost: number;
+    usageModes?: UsageMode[];
+}
+
+export interface Website {
+    id: string;
+    name: string;
+    url: string;
+    addedAt: string;
+    tokenCost: number;
+    usageModes?: UsageMode[];
 }
 
 export interface Application {
@@ -60,6 +83,20 @@ export interface Application {
     url: string;
     addedAt: string;
     tokenCost: number;
+}
+
+export type SystemLogLevel = 'info' | 'warning' | 'error';
+
+export interface SystemLog {
+    id: string;
+    createdAt: string;
+    event?: string;
+    message: string;
+    level?: SystemLogLevel;
+    actorId?: string;
+    relatedAgentIds?: string[];
+    ip?: string;
+    metadata?: Record<string, unknown>;
 }
 
 export interface KeyLog {

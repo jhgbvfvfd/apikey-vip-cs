@@ -8,6 +8,7 @@ import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import PlatformTabs from '../components/ui/PlatformTabs';
+import LoadingState from '../components/ui/LoadingState';
 import {
     ClipboardIcon,
     CheckIcon,
@@ -16,7 +17,9 @@ import {
     TrashIcon,
 } from '@heroicons/react/24/outline';
 
-const KeyRow: React.FC<{ 
+type CreatedKeyPreview = Pick<StandaloneKey, 'key' | 'tokens_remaining'>;
+
+const KeyRow: React.FC<{
     apiKey: StandaloneKey;
     onUpdateStatus: (key: StandaloneKey, status: 'active' | 'inactive') => void;
     onDelete: (key: StandaloneKey) => void;
@@ -48,30 +51,31 @@ const KeyRow: React.FC<{
     return (
         <tr className="border-b border-slate-200 last:border-b-0 odd:bg-white even:bg-slate-50 hover:bg-slate-100">
             <td className="p-2 font-mono text-xs sm:text-sm text-blue-600 break-all">{apiKey.key}</td>
-            <td className="p-2 text-right text-xs sm:text-sm text-slate-600 whitespace-nowrap">{apiKey.tokens_remaining.toLocaleString()}</td>
+            <td className="p-2 text-xs sm:text-sm text-slate-600 whitespace-nowrap">
+                <span className="font-medium text-slate-700">{apiKey.tokens_remaining.toLocaleString()} โทเค็น</span>
+            </td>
             <td className="p-2 whitespace-nowrap">
                 {(() => {
-                    const statusKey = apiKey.tokens_remaining <= 0
-                        ? 'statusNoTokens'
-                        : apiKey.status === 'active'
-                            ? 'statusActive'
-                            : 'statusInactive';
-                    const statusColor = apiKey.tokens_remaining <= 0
-                        ? 'bg-red-100 text-red-800'
-                        : apiKey.status === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-slate-100 text-slate-800';
-                    const dotColor = apiKey.tokens_remaining <= 0
-                        ? 'text-red-400'
-                        : apiKey.status === 'active'
-                            ? 'text-green-400'
-                            : 'text-slate-400';
+                    let label = t('statusActive' as any);
+                    let statusColor = 'bg-green-100 text-green-800';
+                    let dotColor = 'text-green-400';
+
+                    if (apiKey.status !== 'active') {
+                        label = t('statusInactive' as any);
+                        statusColor = 'bg-slate-100 text-slate-800';
+                        dotColor = 'text-slate-400';
+                    } else if (apiKey.tokens_remaining <= 0) {
+                        label = t('statusNoTokens' as any);
+                        statusColor = 'bg-red-100 text-red-800';
+                        dotColor = 'text-red-400';
+                    }
+
                     return (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
                             <svg className={`mr-1.5 h-2 w-2 ${dotColor}`} fill="currentColor" viewBox="0 0 8 8">
                                 <circle cx={4} cy={4} r={3} />
                             </svg>
-                            {t(statusKey as any)}
+                            {label}
                         </span>
                     );
                 })()}
@@ -121,12 +125,15 @@ const GenerateKeyPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isConfirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [keyToDelete, setKeyToDelete] = useState<StandaloneKey | null>(null);
-    const [generatedKey, setGeneratedKey] = useState('');
+    const [createdKeys, setCreatedKeys] = useState<CreatedKeyPreview[]>([]);
     const [selectedPlatformId, setSelectedPlatformId] = useState(platforms[0]?.id || '');
     const [activeMenu, setActiveMenu] = useState<'create' | 'manage'>('create');
     const MIN_TOKENS = 1;
     const MAX_TOKENS = 1000;
+    const MIN_KEYS = 1;
+    const MAX_KEYS = 30;
     const [tokens, setTokens] = useState(100);
+    const [quantity, setQuantity] = useState(1);
     const [error, setError] = useState('');
 
     const handleGenerateKey = async (e: React.FormEvent) => {
@@ -143,29 +150,47 @@ const GenerateKeyPage: React.FC = () => {
             return;
         }
 
+        if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity < MIN_KEYS || quantity > MAX_KEYS) {
+            setError(`สร้างได้ครั้งละ ${MIN_KEYS}-${MAX_KEYS} คีย์`);
+            return;
+        }
+
         const cost = Number(tokens);
-        if (!Number.isFinite(cost) || cost < MIN_TOKENS || cost > MAX_TOKENS) {
+        if (!Number.isFinite(cost) || !Number.isInteger(cost) || cost < MIN_TOKENS || cost > MAX_TOKENS) {
             setError(`กำหนดโทเค็นได้ระหว่าง ${MIN_TOKENS} - ${MAX_TOKENS}`);
             return;
         }
 
         try {
-            const newKeyString = generateKey(platform.prefix, platform.pattern);
-            const newKeyObject: Omit<StandaloneKey, 'id'> & { id: string } = {
-                id: `key_${Date.now()}`,
-                key: newKeyString,
-                tokens_remaining: cost,
-                status: 'active',
-                createdAt: new Date().toISOString(),
-                platformId: platform.id,
-                platformTitle: platform.title,
-            };
-            await addStandaloneKey(newKeyObject);
+            const totalCreated = quantity;
+            const selectedTokenCost = cost;
+            const timestamp = Date.now();
+            const creationDate = new Date();
+            const createdAt = creationDate.toISOString();
+            const keysToCreate: (Omit<StandaloneKey, 'id'> & { id: string })[] = Array.from({ length: totalCreated }, (_, index) => {
+                const keyString = generateKey(platform.prefix, platform.pattern);
+                return {
+                    id: `key_${timestamp}_${index}_${Math.random().toString(36).slice(2, 8)}`,
+                    key: keyString,
+                    tokens_remaining: selectedTokenCost,
+                    status: 'active',
+                    createdAt,
+                    platformId: platform.id,
+                    platformTitle: platform.title,
+                };
+            });
+
+            await Promise.all(keysToCreate.map(key => addStandaloneKey(key)));
             refreshData();
-            setGeneratedKey(newKeyString);
+            setCreatedKeys(keysToCreate.map(({ key, tokens_remaining }) => ({
+                key,
+                tokens_remaining,
+            })));
             setIsModalOpen(true);
             setActiveMenu('manage');
-            notify('สร้างคีย์เรียบร้อย');
+            notify(`สร้างคีย์ ${totalCreated.toLocaleString()} รายการเรียบร้อย`);
+            setTokens(selectedTokenCost);
+            setQuantity(1);
         } catch (err) {
             setError('ไม่สามารถสร้างคีย์ได้');
             console.error(err);
@@ -199,8 +224,18 @@ const GenerateKeyPage: React.FC = () => {
     };
 
     const handleModalCopy = async () => {
+        if (createdKeys.length === 0) return;
         try {
-            await navigator.clipboard.writeText(generatedKey);
+            await navigator.clipboard.writeText(createdKeys.map(k => k.key).join('\n'));
+            notify(t('copySuccess'));
+        } catch (err) {
+            notify(t('copyFailed'), 'error');
+        }
+    };
+
+    const handleCopySingle = async (value: string) => {
+        try {
+            await navigator.clipboard.writeText(value);
             notify(t('copySuccess'));
         } catch (err) {
             notify(t('copyFailed'), 'error');
@@ -275,6 +310,20 @@ const GenerateKeyPage: React.FC = () => {
                                             กำหนดได้ระหว่าง {MIN_TOKENS.toLocaleString()} - {MAX_TOKENS.toLocaleString()} โทเค็นต่อคีย์
                                         </p>
                                     </div>
+
+                                    <div className="space-y-1">
+                                        <Input
+                                            label="จำนวนคีย์ที่ต้องการสร้าง"
+                                            type="number"
+                                            min={MIN_KEYS}
+                                            max={MAX_KEYS}
+                                            step={1}
+                                            value={quantity}
+                                            onChange={e => setQuantity(Number(e.target.value))}
+                                            required
+                                        />
+                                        <p className="text-xs text-slate-500">สร้างได้ครั้งละ {MIN_KEYS} - {MAX_KEYS} คีย์</p>
+                                    </div>
                                     {error && <p className="text-red-500 text-sm">{error}</p>}
                                     <div className="flex justify-end pt-2">
                                         <Button type="submit" disabled={platforms.length === 0}>สร้าง</Button>
@@ -295,7 +344,7 @@ const GenerateKeyPage: React.FC = () => {
                                 <thead className="bg-slate-50 text-slate-500">
                                     <tr>
                                         <th className="w-40 p-2 text-xs font-semibold sm:text-sm">คีย์</th>
-                                        <th className="w-16 p-2 text-xs font-semibold sm:text-sm text-right">โทเค็น</th>
+                                        <th className="w-32 p-2 text-xs font-semibold sm:text-sm">โทเค็นคงเหลือ</th>
                                         <th className="w-24 p-2 text-xs font-semibold sm:text-sm">สถานะ</th>
                                         <th className="w-28 p-2 text-xs font-semibold sm:text-sm">วันที่สร้าง</th>
                                         <th className="p-2 text-center text-xs font-semibold sm:text-sm">จัดการ</th>
@@ -303,9 +352,25 @@ const GenerateKeyPage: React.FC = () => {
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr><td colSpan={5} className="text-center p-4">กำลังโหลดคีย์...</td></tr>
+                                        <tr>
+                                            <td colSpan={5} className="p-6">
+                                                <LoadingState
+                                                    compact
+                                                    label="กำลังโหลดคีย์"
+                                                    helperText="กำลังรวบรวมรายการคีย์ที่มีอยู่"
+                                                    className="mx-auto max-w-xs"
+                                                />
+                                            </td>
+                                        </tr>
                                     ) : filteredKeys.length > 0 ? (
-                                        filteredKeys.map(k => <KeyRow key={k.id} apiKey={k} onUpdateStatus={handleUpdateKeyStatus} onDelete={confirmDeleteKey} />)
+                                        filteredKeys.map(k => (
+                                            <KeyRow
+                                                key={k.id}
+                                                apiKey={k}
+                                                onUpdateStatus={handleUpdateKeyStatus}
+                                                onDelete={confirmDeleteKey}
+                                            />
+                                        ))
                                     ) : (
                                         <tr><td colSpan={5} className="text-center p-6 text-slate-500">ยังไม่มีการสร้างคีย์ทั่วไป</td></tr>
                                     )}
@@ -317,13 +382,37 @@ const GenerateKeyPage: React.FC = () => {
             </div>
 
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="สร้างคีย์สำเร็จ">
-                <div>
-                    <p className="text-slate-600 mb-4">คัดลอกคีย์ด้านล่างนี้ คีย์จะแสดงเพียงครั้งเดียวเท่านั้น</p>
-                    <div className="bg-slate-100 p-4 rounded-lg font-mono text-blue-600 break-all border border-slate-200">
-                        {generatedKey}
+                <div className="space-y-4">
+                    <p className="text-slate-600">คัดลอกคีย์ด้านล่างนี้ คีย์จะแสดงเพียงครั้งเดียวเท่านั้น</p>
+                    <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                        {createdKeys.map((info, index) => (
+                            <div
+                                key={`${info.key}-${index}`}
+                                className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
+                            >
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <p className="font-mono text-sm sm:text-base font-medium text-blue-600 break-all">
+                                            {info.key}
+                                        </p>
+                                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                                            <span>โทเค็น {info.tokens_remaining.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                    <Button type="button" variant="secondary" onClick={() => handleCopySingle(info.key)}>
+                                        คัดลอก
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                     <div className="flex justify-end mt-6">
-                        <Button onClick={handleModalCopy}>คัดลอกไปยังคลิปบอร์ด</Button>
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
+                            ปิด
+                        </Button>
+                        <Button type="button" onClick={handleModalCopy} disabled={createdKeys.length === 0}>
+                            คัดลอกทั้งหมด
+                        </Button>
                     </div>
                 </div>
             </Modal>

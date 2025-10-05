@@ -3,13 +3,16 @@
 import React, { useMemo, useState } from 'react';
 import { useData, useSettings } from '../App';
 import { Agent, Platform, CreditHistoryEntry, ApiKey } from '../types';
-import { addAgent, updateAgent, deleteAgent } from '../services/firebaseService';
+import { addAgent, updateAgent, deleteAgent, setAgentBanState } from '../services/firebaseService';
 import Button from '../components/ui/Button';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import CountdownDisplay from '../components/ui/CountdownDisplay';
+import ToggleSwitch from '../components/ui/ToggleSwitch';
+import { formatCredits, hasUnlimitedCredits } from '../utils/credits';
+import LoadingState from '../components/ui/LoadingState';
 
 const DEFAULT_NEW_AGENT_CREDITS = 1000;
 const DEFAULT_CREDIT_INCREMENT = 100;
@@ -24,6 +27,7 @@ const AgentCard: React.FC<{
     platforms: Platform[]
 }> = ({ agent, onViewHistory, onManageKeys, onAddCredits, onDelete, onBan, platforms }) => {
     const platformMap = new Map(platforms.map(p => [p.id, p]));
+    const unlimited = hasUnlimitedCredits(agent);
 
     return (
         <Card>
@@ -35,9 +39,14 @@ const AgentCard: React.FC<{
                 <div className="flex w-full flex-wrap items-start justify-between gap-3 sm:w-auto sm:flex-nowrap sm:justify-end">
                     <div className="min-w-0 text-left sm:text-right">
                         <p className="text-lg font-bold leading-tight text-blue-600 break-words sm:text-2xl">
-                            {agent.credits.toLocaleString()}
+                            {formatCredits(agent)}
                         </p>
                         <p className="text-xs text-slate-500 sm:whitespace-nowrap">เครดิตคงเหลือ</p>
+                        {unlimited && (
+                            <span className="mt-1 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                                ไม่จำกัดเครดิต
+                            </span>
+                        )}
                     </div>
                     <div className="flex w-full shrink-0 flex-wrap justify-end gap-2 sm:w-auto sm:flex-col sm:gap-1">
                         <Button
@@ -74,7 +83,9 @@ const AgentCard: React.FC<{
                     </div>
                 )}
                 <div className="flex flex-col gap-2 mb-4">
-                    <Button onClick={() => onAddCredits(agent)} className="w-full">เติมเครดิต</Button>
+                    <Button onClick={() => onAddCredits(agent)} className="w-full" disabled={unlimited}>
+                        เติมเครดิต
+                    </Button>
                     <div className="flex flex-col sm:flex-row gap-2">
                         <Button onClick={() => onViewHistory(agent)} variant="secondary" className="w-full">ดูประวัติเครดิต</Button>
                         <Button onClick={() => onManageKeys(agent)} variant="secondary" className="w-full">จัดการคีย์</Button>
@@ -128,7 +139,9 @@ const ManageKeysModal: React.FC<{
         const keysForPlatform = [...(updatedAgent.keys[platformId] || [])];
         const keyIndex = keysForPlatform.findIndex(k => k.key === keyToUpdate.key);
         if (keyIndex > -1) {
-            keysForPlatform[keyIndex] = { ...keysForPlatform[keyIndex], status: keyToUpdate.status === 'active' ? 'inactive' : 'active' };
+            const toggledStatus = keyToUpdate.status === 'active' ? 'inactive' : 'active';
+            const { banLocked: _banLocked, ...keyWithoutLock } = { ...keysForPlatform[keyIndex], status: toggledStatus };
+            keysForPlatform[keyIndex] = keyWithoutLock as ApiKey;
             updatedAgent.keys[platformId] = keysForPlatform;
             await onUpdateAgent(updatedAgent);
             notify(keyToUpdate.status === 'active' ? 'ระงับคีย์แล้ว' : 'เปิดใช้งานคีย์แล้ว');
@@ -207,14 +220,20 @@ const ManageKeysModal: React.FC<{
 
 
 const AgentsPage: React.FC = () => {
-    const { agents, platforms, loading, refreshData } = useData();
+    const { agents, platforms, loading, refreshData, upsertAgent } = useData();
     const { notify, t } = useSettings();
     const [isAddAgentModalOpen, setAddAgentModalOpen] = useState(false);
     const [isHistoryModalOpen, setHistoryModalOpen] = useState(false);
     const [isKeysModalOpen, setKeysModalOpen] = useState(false);
     const [isAddCreditsModalOpen, setAddCreditsModalOpen] = useState(false);
     const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-    const [newAgentData, setNewAgentData] = useState({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '' });
+    const [newAgentData, setNewAgentData] = useState({
+        username: '',
+        password: '',
+        credits: DEFAULT_NEW_AGENT_CREDITS,
+        expiresAt: '',
+        unlimitedCredits: false,
+    });
     const [creditsToAdd, setCreditsToAdd] = useState(DEFAULT_CREDIT_INCREMENT);
     const [error, setError] = useState('');
     const [query, setQuery] = useState('');
@@ -239,12 +258,15 @@ const AgentsPage: React.FC = () => {
 
         try {
             const newId = `agent_${Date.now()}`;
-            const initialCredits = Number(newAgentData.credits);
+            const unlimited = newAgentData.unlimitedCredits === true;
+            const initialCredits = unlimited ? 0 : Number(newAgentData.credits);
             let expiresAtIso: string | undefined;
 
-            if (!Number.isFinite(initialCredits) || initialCredits <= 0) {
-                setError('กรุณากรอกจำนวนเครดิตมากกว่า 0');
-                return;
+            if (!unlimited) {
+                if (!Number.isFinite(initialCredits) || initialCredits <= 0) {
+                    setError('กรุณากรอกจำนวนเครดิตมากกว่า 0');
+                    return;
+                }
             }
 
             if (newAgentData.expiresAt) {
@@ -260,28 +282,42 @@ const AgentsPage: React.FC = () => {
                 expiresAtIso = expiresAtDate.toISOString();
             }
 
-            const initialHistoryEntry: CreditHistoryEntry = {
-                date: new Date().toISOString(),
-                action: 'เครดิตเริ่มต้น',
-                amount: initialCredits,
-                balanceAfter: initialCredits,
-            };
+            const nowIso = new Date().toISOString();
+            const initialHistoryEntry: CreditHistoryEntry = unlimited
+                ? {
+                    date: nowIso,
+                    action: 'เปิดใช้งานเครดิตไม่จำกัด',
+                    amount: 0,
+                    balanceAfter: 0,
+                }
+                : {
+                    date: nowIso,
+                    action: 'เครดิตเริ่มต้น',
+                    amount: initialCredits,
+                    balanceAfter: initialCredits,
+                };
 
-            await addAgent({
+            const createdAgent: Agent = {
                 id: newId,
                 username: newAgentData.username,
                 password: newAgentData.password,
                 credits: initialCredits,
-                createdAt: new Date().toISOString(),
+                unlimitedCredits: unlimited,
+                createdAt: nowIso,
                 keys: {},
                 creditHistory: [initialHistoryEntry],
                 status: 'active',
                 welcomeAcknowledged: false,
                 expiresAt: expiresAtIso,
+            };
+
+            await addAgent(createdAgent);
+            upsertAgent(createdAgent);
+            refreshData().catch((refreshError) => {
+                console.error('Failed to refresh data after creating agent:', refreshError);
             });
-            refreshData();
             setAddAgentModalOpen(false);
-            setNewAgentData({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '' });
+            setNewAgentData({ username: '', password: '', credits: DEFAULT_NEW_AGENT_CREDITS, expiresAt: '', unlimitedCredits: false });
             notify('สร้างตัวแทนเรียบร้อย');
         } catch (err) {
             setError('ไม่สามารถเพิ่มตัวแทนได้');
@@ -301,6 +337,10 @@ const AgentsPage: React.FC = () => {
     };
     
     const handleOpenAddCredits = (agent: Agent) => {
+        if (hasUnlimitedCredits(agent)) {
+            notify('บัญชีนี้ใช้เครดิตไม่จำกัดอยู่แล้ว');
+            return;
+        }
         setSelectedAgent(agent);
         setCreditsToAdd(DEFAULT_CREDIT_INCREMENT);
         setAddCreditsModalOpen(true);
@@ -309,6 +349,11 @@ const AgentsPage: React.FC = () => {
     const handleAddCredits = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedAgent) return;
+        if (hasUnlimitedCredits(selectedAgent)) {
+            notify('บัญชีนี้ใช้เครดิตไม่จำกัด ไม่จำเป็นต้องเติม');
+            setAddCreditsModalOpen(false);
+            return;
+        }
         if (!Number.isFinite(creditsToAdd) || creditsToAdd <= 0) {
             notify('กรุณาระบุจำนวนเครดิตมากกว่า 0', 'error');
             return;
@@ -344,10 +389,15 @@ const AgentsPage: React.FC = () => {
     const filteredAgents = agents.filter(a => a.username.toLowerCase().includes(query.toLowerCase()));
 
     const handleBanAgent = async (agent: Agent) => {
-        const updatedAgent = { ...agent, status: agent.status === 'banned' ? 'active' : 'banned' };
-        await updateAgent(updatedAgent);
-        refreshData();
-        notify(updatedAgent.status === 'banned' ? 'แบนตัวแทนแล้ว' : 'ปลดแบนตัวแทนแล้ว');
+        const targetBanState = agent.status !== 'banned';
+        try {
+            await setAgentBanState(agent.id, targetBanState);
+            refreshData();
+            notify(targetBanState ? 'แบนตัวแทนแล้ว' : 'ปลดแบนตัวแทนแล้ว');
+        } catch (error) {
+            console.error('Failed to update agent ban state:', error);
+            notify('ไม่สามารถอัปเดตสถานะการแบนได้', 'error');
+        }
     };
     const handleDeleteAgent = async (agent: Agent) => {
         await deleteAgent(agent.id);
@@ -369,7 +419,13 @@ const AgentsPage: React.FC = () => {
                 </div>
             </div>
 
-            {loading ? <p>กำลังโหลดข้อมูลตัวแทน...</p> : (
+            {loading ? (
+                <LoadingState
+                    label="กำลังเตรียมข้อมูลตัวแทน"
+                    helperText="ระบบกำลังอัปเดตรายชื่อตัวแทนและสถานะล่าสุด"
+                    className="mx-auto my-16 max-w-2xl"
+                />
+            ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredAgents.map(u => (
                         <AgentCard
@@ -391,12 +447,31 @@ const AgentsPage: React.FC = () => {
                  <form onSubmit={handleAddAgent} className="space-y-4">
                     <Input label="ชื่อผู้ใช้" placeholder="เช่น agent_007" value={newAgentData.username} onChange={e => setNewAgentData({...newAgentData, username: e.target.value})} required />
                     <Input label="รหัสผ่าน" type="password" placeholder="ตั้งรหัสผ่านสำหรับตัวแทน" value={newAgentData.password} onChange={e => setNewAgentData({...newAgentData, password: e.target.value})} required />
+                    <div className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div>
+                            <p className="text-sm font-medium text-slate-700">สิทธิ์เครดิตไม่จำกัด</p>
+                            <p className="text-xs text-slate-500 mt-1">เปิดใช้งานหากต้องการให้ตัวแทนคนนี้ใช้เครดิตแบบไม่จำกัด</p>
+                        </div>
+                        <ToggleSwitch
+                            checked={newAgentData.unlimitedCredits}
+                            onChange={checked => {
+                                setNewAgentData({
+                                    ...newAgentData,
+                                    unlimitedCredits: checked,
+                                });
+                                if (checked) {
+                                    setError('');
+                                }
+                            }}
+                        />
+                    </div>
                     <Input
                         label="เครดิตเริ่มต้น"
                         type="number"
                         placeholder="เช่น 1000"
                         value={newAgentData.credits}
                         min={0}
+                        disabled={newAgentData.unlimitedCredits}
                         onChange={e => {
                             const value = Number(e.target.value);
                             setNewAgentData({
@@ -404,8 +479,10 @@ const AgentsPage: React.FC = () => {
                                 credits: Math.max(0, Number.isFinite(value) ? value : 0),
                             });
                         }}
-                        required
                     />
+                    {newAgentData.unlimitedCredits && (
+                        <p className="text-xs text-blue-600 -mt-2">ตัวแทนจะไม่ถูกจำกัดเครดิตและไม่จำเป็นต้องระบุยอดเริ่มต้น</p>
+                    )}
                     <Input
                         label="วันและเวลาหมดอายุ"
                         type="datetime-local"
@@ -425,7 +502,7 @@ const AgentsPage: React.FC = () => {
             <Modal isOpen={isAddCreditsModalOpen} onClose={() => setAddCreditsModalOpen(false)} title={`เติมเครดิตสำหรับ ${selectedAgent?.username}`}>
                  <form onSubmit={handleAddCredits} className="space-y-4">
                     <div>
-                        <p className="text-sm text-slate-600">เครดิตปัจจุบัน: <span className="font-bold text-blue-600">{selectedAgent?.credits.toLocaleString()}</span></p>
+                        <p className="text-sm text-slate-600">เครดิตปัจจุบัน: <span className="font-bold text-blue-600">{selectedAgent ? formatCredits(selectedAgent) : '-'}</span></p>
                     </div>
                     <Input
                         label="จำนวนเครดิตที่ต้องการเพิ่ม"

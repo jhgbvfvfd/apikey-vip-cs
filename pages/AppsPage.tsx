@@ -6,6 +6,7 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
+import LoadingState from '../components/ui/LoadingState';
 
 const AppsPage: React.FC = () => {
     const { applications, loading, refreshData } = useData();
@@ -88,7 +89,13 @@ const AppsPage: React.FC = () => {
                 {!isAgent && <Button onClick={() => { setEditingApp(null); setNewApp({ name: '', url: '', tokenCost: 1 }); setIsModalOpen(true); }}>+ เพิ่มแอพ</Button>}
             </div>
 
-            {loading ? <p>กำลังโหลดแอพ...</p> : (
+            {loading ? (
+                <LoadingState
+                    label="กำลังเรียกข้อมูลแอพ"
+                    helperText="กำลังซิงก์รายการแอพล่าสุด โปรดรอสักครู่"
+                    className="mx-auto my-12 max-w-md"
+                />
+            ) : (
                 <div className="space-y-4">
                     {applications.map(app => <AppCard key={app.id} app={app} />)}
                     {applications.length === 0 && <p className="text-center p-10 text-slate-500">ยังไม่มีแอพในไดเรกทอรี</p>}

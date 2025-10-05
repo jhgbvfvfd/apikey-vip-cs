@@ -1,5 +1,6 @@
 
-import { Platform, Agent, Bot, ApiKey, StandaloneKey, KeyLog, IpBan, MaintenanceConfig, Application } from '../types';
+import { Platform, Agent, Bot, ApiKey, StandaloneKey, KeyLog, IpBan, MaintenanceConfig, Application, UsageMode, Website, SystemLog, AdminCredentials } from '../types';
+import { ADMIN_PASSWORD_TTL_MS, buildAdminCredentialsRecord, generateAdminPassword, isAdminPasswordExpired } from '../utils/password';
 
 // IMPORTANT: In a real application, these values should come from environment variables.
 // For this example, we are using the URL provided in the prompt.
@@ -37,6 +38,8 @@ async function deleteData(path: string): Promise<void> {
 
 type AdminPasswordSource = 'remote' | 'local' | 'default';
 
+interface AdminPasswordRecord extends AdminCredentials {}
+
 const getCachedAdminPassword = (): string | null => {
     if (typeof window === 'undefined') {
         return null;
@@ -50,13 +53,49 @@ const cacheAdminPassword = (password: string) => {
     }
 };
 
-export const getAdminPassword = async (): Promise<{ password: string; source: AdminPasswordSource }> => {
+const fetchAdminPasswordRecord = async (): Promise<AdminPasswordRecord | null> => {
     try {
-        const data = await fetchData<{ password?: string } | null>('admin_credentials');
+        const data = await fetchData<Partial<AdminPasswordRecord> | null>('admin_credentials');
         if (data && typeof data.password === 'string' && data.password.trim().length > 0) {
-            cacheAdminPassword(data.password);
-            return { password: data.password, source: 'remote' };
+            return {
+                password: data.password,
+                rotatedAt: typeof data.rotatedAt === 'string' ? data.rotatedAt : '',
+            };
         }
+    } catch (error) {
+        console.error('Failed to fetch admin password:', error);
+    }
+    return null;
+};
+
+const saveAdminPasswordRecord = async (record: AdminPasswordRecord): Promise<void> => {
+    await setData('admin_credentials', record);
+    cacheAdminPassword(record.password);
+};
+
+const ensureFreshAdminPassword = async (record: AdminPasswordRecord | null): Promise<AdminPasswordRecord> => {
+    if (!record || !record.password || isAdminPasswordExpired(record.rotatedAt)) {
+        const password = generateAdminPassword();
+        const rotatedRecord = buildAdminCredentialsRecord(password);
+        await saveAdminPasswordRecord(rotatedRecord);
+        return rotatedRecord;
+    }
+
+    if (record.rotatedAt) {
+        return record;
+    }
+
+    const refreshedRecord = buildAdminCredentialsRecord(record.password);
+    await saveAdminPasswordRecord(refreshedRecord);
+    return refreshedRecord;
+};
+
+export const getAdminPassword = async (): Promise<{ password: string; source: AdminPasswordSource; rotatedAt?: string; expiresAt?: string }> => {
+    try {
+        const record = await ensureFreshAdminPassword(await fetchAdminPasswordRecord());
+        const expiresAt = new Date(new Date(record.rotatedAt).getTime() + ADMIN_PASSWORD_TTL_MS).toISOString();
+        cacheAdminPassword(record.password);
+        return { password: record.password, source: 'remote', rotatedAt: record.rotatedAt, expiresAt };
     } catch (error) {
         console.error('Failed to fetch admin password:', error);
     }
@@ -70,8 +109,8 @@ export const getAdminPassword = async (): Promise<{ password: string; source: Ad
 };
 
 export const setAdminPassword = async (password: string): Promise<void> => {
-    await setData('admin_credentials', { password });
-    cacheAdminPassword(password);
+    const record = buildAdminCredentialsRecord(password);
+    await saveAdminPasswordRecord(record);
 };
 
 
@@ -80,6 +119,102 @@ const firebaseObjectToArray = <T extends {id: string}>(data: Record<string, Omit
     if (!data) return [];
     return Object.entries(data).map(([id, value]) => ({ id, ...value } as T));
 }
+
+const buildChildMap = (agents: Agent[]): Map<string, Agent[]> => {
+    const map = new Map<string, Agent[]>();
+    agents.forEach((agent) => {
+        if (!agent.parentId) {
+            return;
+        }
+        const children = map.get(agent.parentId) || [];
+        children.push(agent);
+        map.set(agent.parentId, children);
+    });
+    return map;
+};
+
+const collectAgentTree = (agents: Agent[], rootId: string): Agent[] => {
+    const agentMap = new Map(agents.map((agent) => [agent.id, agent]));
+    const childMap = buildChildMap(agents);
+    const stack = [rootId];
+    const visited = new Set<string>();
+    const result: Agent[] = [];
+
+    while (stack.length > 0) {
+        const currentId = stack.pop();
+        if (!currentId || visited.has(currentId)) {
+            continue;
+        }
+        const currentAgent = agentMap.get(currentId);
+        if (!currentAgent) {
+            continue;
+        }
+        visited.add(currentId);
+        result.push(currentAgent);
+        const children = childMap.get(currentId) || [];
+        children.forEach((child) => {
+            stack.push(child.id);
+        });
+    }
+
+    return result;
+};
+
+const toggleAgentBanState = (agent: Agent, banned: boolean, rootId: string): Agent => {
+    const updatedAgent: Agent = {
+        ...agent,
+        status: banned ? 'banned' : 'active',
+    };
+    const isRoot = agent.id === rootId;
+    const originalBanLocked = agent.banLocked;
+
+    if (banned) {
+        if (isRoot || agent.status !== 'banned' || originalBanLocked) {
+            updatedAgent.banLocked = true;
+        } else {
+            delete (updatedAgent as Partial<Agent>).banLocked;
+        }
+    } else if (isRoot || originalBanLocked) {
+        delete (updatedAgent as Partial<Agent>).banLocked;
+    }
+
+    if (!agent.keys) {
+        return updatedAgent;
+    }
+
+    let keysChanged = false;
+    const updatedKeys: NonNullable<Agent['keys']> = {};
+
+    Object.entries(agent.keys).forEach(([platformId, keyList]) => {
+        const newList = keyList.map((key) => {
+            if (banned) {
+                if (key.status === 'active' || key.banLocked) {
+                    keysChanged = true;
+                    return { ...key, status: 'inactive', banLocked: true };
+                }
+                return key;
+            }
+
+            if (key.banLocked) {
+                const { banLocked, ...rest } = key;
+                keysChanged = true;
+                return { ...rest, status: 'active' };
+            }
+
+            return key;
+        });
+
+        updatedKeys[platformId] = keysChanged ? newList : keyList;
+    });
+
+    if (keysChanged) {
+        updatedAgent.keys = updatedKeys;
+    } else {
+        updatedAgent.keys = agent.keys;
+    }
+
+    return updatedAgent;
+};
 
 export const getPlatforms = async (): Promise<Platform[]> => {
     const data = await fetchData<Record<string, Omit<Platform, 'id'>>>('platforms');
@@ -115,8 +250,74 @@ export const updateAgent = async(agent: Agent): Promise<void> => {
     await setData(`agents/${id}`, agentData);
 }
 
+export const setAgentBanState = async(agentId: string, banned: boolean): Promise<void> => {
+    const agents = await getAgents();
+    const affectedAgents = collectAgentTree(agents, agentId);
+
+    if (affectedAgents.length === 0) {
+        throw new Error('Agent not found');
+    }
+
+    const targets = banned
+        ? affectedAgents
+        : affectedAgents.filter((agent) => agent.id === agentId || agent.banLocked);
+
+    if (targets.length === 0) {
+        return;
+    }
+
+    await Promise.all(
+        targets.map((agent) => {
+            const updated = toggleAgentBanState(agent, banned, agentId);
+            return updateAgent(updated);
+        }),
+    );
+}
+
 export const deleteAgent = async(agentId: string): Promise<void> => {
-    await deleteData(`agents/${agentId}`);
+    const agents = await getAgents();
+    const affectedAgents = collectAgentTree(agents, agentId);
+
+    if (affectedAgents.length === 0) {
+        return;
+    }
+
+    const idsToDelete = new Set(affectedAgents.map((agent) => agent.id));
+    let logs: KeyLog[] = [];
+    let systemLogs: SystemLog[] = [];
+
+    try {
+        [logs, systemLogs] = await Promise.all([
+            getKeyLogs(),
+            getSystemLogs().catch(() => [] as SystemLog[]),
+        ]);
+    } catch (error) {
+        console.error('Failed to fetch key logs during agent deletion:', error);
+    }
+
+    const logDeletions = logs
+        .filter((log) => idsToDelete.has(log.agentId))
+        .map((log) => deleteData(`key_logs/${log.id}`).catch(() => undefined));
+
+    const systemLogDeletions = systemLogs
+        .filter((log) => {
+            if (log.actorId && idsToDelete.has(log.actorId)) {
+                return true;
+            }
+            if (Array.isArray(log.relatedAgentIds)) {
+                return log.relatedAgentIds.some((id) => idsToDelete.has(id));
+            }
+            return false;
+        })
+        .map((log) => deleteData(`system_logs/${log.id}`).catch(() => undefined));
+
+    const ipBanDeletions = Array.from(idsToDelete).map((id) =>
+        deleteData(`ip_bans/${id}`).catch(() => undefined),
+    );
+
+    const agentDeletions = Array.from(idsToDelete).map((id) => deleteData(`agents/${id}`));
+
+    await Promise.all([...logDeletions, ...systemLogDeletions, ...ipBanDeletions, ...agentDeletions]);
 }
 
 export const getStandaloneKeys = async (): Promise<StandaloneKey[]> => {
@@ -138,9 +339,25 @@ export const deleteStandaloneKey = async(keyId: string): Promise<void> => {
     await deleteData(`standalone_keys/${keyId}`);
 }
 
+const normalizeUsageModes = (incoming?: unknown): UsageMode[] => {
+    if (Array.isArray(incoming)) {
+        const filtered = incoming.filter((mode): mode is UsageMode => mode === 'token' || mode === 'duration');
+        if (filtered.length > 0) {
+            return filtered;
+        }
+    } else if (incoming === 'token' || incoming === 'duration') {
+        return [incoming];
+    }
+
+    return ['token'];
+};
+
 export const getBots = async (): Promise<Bot[]> => {
     const data = await fetchData<Record<string, Omit<Bot, 'id'>>>('bots');
-    return firebaseObjectToArray(data);
+    return firebaseObjectToArray(data).map((bot) => ({
+        ...bot,
+        usageModes: normalizeUsageModes((bot as Bot).usageModes),
+    }));
 };
 
 export const addBot = async (bot: Omit<Bot, 'id'> & {id: string}): Promise<void> => {
@@ -155,6 +372,28 @@ export const updateBot = async (bot: Bot): Promise<void> => {
 
 export const deleteBot = async (botId: string): Promise<void> => {
     await deleteData(`bots/${botId}`);
+};
+
+export const getWebsites = async (): Promise<Website[]> => {
+    const data = await fetchData<Record<string, Omit<Website, 'id'>>>('websites');
+    return firebaseObjectToArray(data).map((website) => ({
+        ...website,
+        usageModes: normalizeUsageModes((website as Website).usageModes),
+    }));
+};
+
+export const addWebsite = async (website: Omit<Website, 'id'> & { id: string }): Promise<void> => {
+    const { id, ...websiteData } = website;
+    await setData(`websites/${id}`, websiteData);
+};
+
+export const updateWebsite = async (website: Website): Promise<void> => {
+    const { id, ...websiteData } = website;
+    await setData(`websites/${id}`, websiteData);
+};
+
+export const deleteWebsite = async (websiteId: string): Promise<void> => {
+    await deleteData(`websites/${websiteId}`);
 };
 
 export const getApplications = async (): Promise<Application[]> => {
@@ -183,6 +422,22 @@ export const getKeyLogs = async (): Promise<KeyLog[]> => {
 
 export const recordKeyLog = async (log: Omit<KeyLog, 'id'>): Promise<void> => {
     await fetch(`${FIREBASE_URL}key_logs.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(log),
+    });
+};
+
+export const getSystemLogs = async (): Promise<SystemLog[]> => {
+    const data = await fetchData<Record<string, Omit<SystemLog, 'id'>>>('system_logs');
+    return firebaseObjectToArray(data).map((entry) => ({
+        ...entry,
+        relatedAgentIds: Array.isArray(entry.relatedAgentIds) ? entry.relatedAgentIds : [],
+    }));
+};
+
+export const recordSystemLog = async (log: Omit<SystemLog, 'id'>): Promise<void> => {
+    await fetch(`${FIREBASE_URL}system_logs.json`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(log),

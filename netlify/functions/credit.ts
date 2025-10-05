@@ -6,6 +6,9 @@ interface ApiKey {
   key: string;
   tokens_remaining: number;
   status: 'active' | 'inactive';
+  usageMode?: 'token' | 'duration';
+  expiresAt?: string;
+  durationDays?: number;
 }
 
 interface AgentRecord {
@@ -126,11 +129,18 @@ const handler: Handler = async (event) => {
     body: JSON.stringify({ key: keyParam, agentId: foundAgentId, ip, usedAt: new Date().toISOString() }),
   });
 
-  const status = foundKey.tokens_remaining <= 0 ? 'no_tokens' : foundKey.status;
+  let status: string = foundKey.status;
+  status = foundKey.tokens_remaining <= 0 ? 'no_tokens' : foundKey.status;
+
+  const responseBody: Record<string, unknown> = {
+    ok: true,
+    tokens_remaining: foundKey.tokens_remaining,
+    status,
+  };
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ ok: true, tokens_remaining: foundKey.tokens_remaining, status }),
+    body: JSON.stringify(responseBody),
   };
 };
 

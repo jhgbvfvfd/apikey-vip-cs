@@ -7,6 +7,7 @@ import { updateAgent } from '../services/firebaseService';
 import Button from '../components/ui/Button';
 import Card, { CardHeader, CardTitle } from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
+import LoadingState from '../components/ui/LoadingState';
 import {
     ClipboardIcon,
     CheckIcon,
@@ -194,10 +195,31 @@ const AgentKeysPage: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {dataLoading ? <tr><td colSpan={6} className="text-center p-4">กำลังโหลดคีย์...</td></tr> : 
-                            agentKeys.length > 0 ? agentKeys.map(k => <KeyRow key={k.key} apiKey={k} onUpdateStatus={handleUpdateKeyStatus} onDelete={confirmDeleteKey} />)
-                            : <tr><td colSpan={6} className="text-center p-6 text-slate-500">คุณยังไม่ได้สร้างคีย์ใดๆ</td></tr>
-                            }
+                            {dataLoading ? (
+                                <tr>
+                                    <td colSpan={6} className="p-6">
+                                        <LoadingState
+                                            compact
+                                            label="กำลังโหลดคีย์"
+                                            helperText="เตรียมรายการคีย์ล่าสุดให้พร้อมจัดการ"
+                                            className="mx-auto max-w-xs"
+                                        />
+                                    </td>
+                                </tr>
+                            ) : agentKeys.length > 0 ? (
+                                agentKeys.map(k => (
+                                    <KeyRow
+                                        key={k.key}
+                                        apiKey={k}
+                                        onUpdateStatus={handleUpdateKeyStatus}
+                                        onDelete={confirmDeleteKey}
+                                    />
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={6} className="p-6 text-center text-slate-500">คุณยังไม่ได้สร้างคีย์ใดๆ</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

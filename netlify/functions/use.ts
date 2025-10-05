@@ -6,6 +6,10 @@ interface ApiKey {
   key: string;
   tokens_remaining: number;
   status: 'active' | 'inactive';
+  banLocked?: boolean;
+  usageMode?: 'token' | 'duration';
+  expiresAt?: string;
+  durationDays?: number;
 }
 
 interface AgentRecord {
@@ -142,7 +146,51 @@ const handler: Handler = async (event) => {
     };
   }
 
-  const newRemaining = foundKey.tokens_remaining - tokens;
+  let agentCreditSnapshot: { credits: number; history: any[] } | null = null;
+  let agentHasUnlimitedCredits = false;
+
+  if (foundAgentId && foundAgentId !== 'standalone') {
+    const agentRes = await fetch(`${FIREBASE_URL}agents/${foundAgentId}.json`);
+    if (!agentRes.ok) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ ok: false, error: 'AGENT_FETCH_FAILED', message: 'Unable to fetch agent credits.' }),
+      };
+    }
+
+    const agentData: { credits?: number | string; creditHistory?: any[]; unlimitedCredits?: boolean } | null = await agentRes.json();
+    agentHasUnlimitedCredits = agentData?.unlimitedCredits === true;
+    const history = Array.isArray(agentData?.creditHistory) ? [...agentData.creditHistory] : [];
+
+    if (!agentHasUnlimitedCredits) {
+      const rawCredits = agentData?.credits;
+      let currentCredits = 0;
+      if (typeof rawCredits === 'number' && Number.isFinite(rawCredits)) {
+        currentCredits = rawCredits;
+      } else if (typeof rawCredits === 'string') {
+        const parsed = Number(rawCredits);
+        if (Number.isFinite(parsed)) {
+          currentCredits = parsed;
+        }
+      }
+
+      if (currentCredits < tokens) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ ok: false, error: 'INSUFFICIENT_CREDITS', message: 'Not enough credits remaining.' }),
+        };
+      }
+
+      agentCreditSnapshot = {
+        credits: currentCredits,
+        history,
+      };
+    }
+  }
+
+  let newRemaining = foundKey.tokens_remaining;
+
+  newRemaining = foundKey.tokens_remaining - tokens;
 
   await fetch(`${FIREBASE_URL}${updatePath}.json`, {
     method: 'PATCH',
@@ -151,26 +199,20 @@ const handler: Handler = async (event) => {
   });
 
   // deduct credits and record credit history for agent-owned keys
-  if (foundAgentId && foundAgentId !== 'standalone') {
-    const agentRes = await fetch(`${FIREBASE_URL}agents/${foundAgentId}.json`);
-    if (agentRes.ok) {
-      const agentData: { credits?: number; creditHistory?: any[] } | null = await agentRes.json();
-      if (agentData) {
-        const newCredits = (agentData.credits || 0) - tokens;
-        const history = agentData.creditHistory || [];
-        history.push({
-          date: new Date().toISOString(),
-          action: 'use',
-          amount: -tokens,
-          balanceAfter: newCredits,
-        });
-        await fetch(`${FIREBASE_URL}agents/${foundAgentId}.json`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credits: newCredits, creditHistory: history }),
-        });
-      }
-    }
+  if (agentCreditSnapshot && !agentHasUnlimitedCredits) {
+    const newCredits = agentCreditSnapshot.credits - tokens;
+    const history = [...agentCreditSnapshot.history];
+    history.push({
+      date: new Date().toISOString(),
+      action: 'use',
+      amount: -tokens,
+      balanceAfter: newCredits,
+    });
+    await fetch(`${FIREBASE_URL}agents/${foundAgentId}.json`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credits: newCredits, creditHistory: history }),
+    });
   }
 
   await fetch(`${FIREBASE_URL}key_logs.json`, {

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useData, useSettings } from '../App';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import LoadingState from '../components/ui/LoadingState';
 import { Agent, Platform } from '../types';
 import { Line } from 'react-chartjs-2';
 import {
@@ -45,7 +46,15 @@ const DashboardPage: React.FC = () => {
 
 
     if (loading) {
-        return <div className="text-center p-10">กำลังโหลดข้อมูลแดชบอร์ด...</div>;
+        return (
+            <div className="py-20">
+                <LoadingState
+                    label="กำลังอัปเดตแดชบอร์ด"
+                    helperText="ดึงสถิติล่าสุดและกราฟการใช้งาน โปรดรอสักครู่"
+                    className="mx-auto max-w-xl"
+                />
+            </div>
+        );
     }
 
   return (

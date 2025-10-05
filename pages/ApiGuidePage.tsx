@@ -223,9 +223,9 @@ const ApiGuidePage: React.FC = () => {
     requestExample: t('apiGuideRequestExample'),
     requestBody: t('apiGuideRequestBody'),
     successResponse: t('apiGuideSuccessResponse'),
-    errorResponse: t('apiGuideErrorResponse'),
-    notes: t('apiGuideNotes'),
-  };
+      errorResponse: t('apiGuideErrorResponse'),
+      notes: t('apiGuideNotes'),
+    };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
@@ -279,7 +279,9 @@ const ApiGuidePage: React.FC = () => {
 
       <div className="space-y-6">
         {endpoints.map((endpoint) => (
-          <EndpointCard key={endpoint.step} {...endpoint} labels={labels} />
+          <React.Fragment key={endpoint.step}>
+            <EndpointCard {...endpoint} labels={labels} />
+          </React.Fragment>
         ))}
       </div>
 

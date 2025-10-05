@@ -8,6 +8,7 @@ import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { DropdownMenu, DropdownMenuItem } from '../components/ui/Dropdown';
+import LoadingState from '../components/ui/LoadingState';
 
 
 const PlatformCard: React.FC<{ platform: Platform; onToggleApi: (platform: Platform) => void; onDelete: (platform: Platform) => void; }> = ({ platform, onToggleApi, onDelete }) => {
@@ -126,7 +127,13 @@ const PlatformsPage: React.FC = () => {
             <Button onClick={() => setAddModalOpen(true)}>+ เพิ่มแพลตฟอร์ม</Button>
         </div>
 
-        {loading ? <p>กำลังโหลดแพลตฟอร์ม...</p> : (
+        {loading ? (
+            <LoadingState
+                label="กำลังเตรียมข้อมูลแพลตฟอร์ม"
+                helperText="ระบบกำลังจัดระเบียบข้อมูลให้พร้อมใช้งาน"
+                className="mx-auto my-12 max-w-md"
+            />
+        ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {platforms.map(p => <PlatformCard key={p.id} platform={p} onToggleApi={handleToggleApi} onDelete={confirmDelete} />)}
             </div>
