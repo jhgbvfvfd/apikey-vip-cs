@@ -88,6 +88,7 @@
 
       html,
       body {
+        width: 100%;
         max-width: 100%;
         overflow-x: hidden;
       }
@@ -213,16 +214,24 @@
         z-index: -1;
       }
 
-      #root {
-        min-height: 100%;
-      }
-
+      #root,
+      .cosmic-shell,
       .cosmic-content {
         min-height: 0;
+        width: 100%;
+      }
+
+      #root,
+      .cosmic-shell {
+        min-height: 100%;
       }
 
       .cosmic-main {
         scrollbar-gutter: stable both-edges;
+      }
+
+      .cosmic-main-inner {
+        width: 100%;
       }
 
       @media (max-width: 768px) {
@@ -257,17 +266,26 @@
         }
 
         .cosmic-shell {
-          padding: 0.75rem 0.5rem calc(1rem + env(safe-area-inset-bottom, 0px));
+          padding: max(env(safe-area-inset-top, 0px), 0.5rem) 0 max(env(safe-area-inset-bottom, 0px), 0.5rem);
+        }
+
+        .cosmic-content {
+          border-radius: 0;
         }
 
         .cosmic-header {
-          border-radius: 1.25rem;
-          margin: 0 auto 0.75rem;
-          padding: 0.85rem 1rem !important;
+          border-radius: 0;
+          margin: 0;
+          padding: 0.85rem 1.1rem !important;
         }
 
         .cosmic-main {
-          padding: 0.85rem !important;
+          padding: 0 !important;
+        }
+
+        .cosmic-main-inner {
+          max-width: 100% !important;
+          padding: 1rem 1.1rem 1.5rem;
         }
 
         .credit-pill {
@@ -281,19 +299,19 @@
         }
 
         .cosmic-sidebar {
-          top: max(0.75rem, env(safe-area-inset-top, 0px)) !important;
-          bottom: max(0.75rem, env(safe-area-inset-bottom, 0px)) !important;
-          left: 0.75rem !important;
-          right: 0.75rem !important;
-          width: auto !important;
+          top: max(env(safe-area-inset-top, 0px), 0px) !important;
+          bottom: max(env(safe-area-inset-bottom, 0px), 0px) !important;
+          left: 0 !important;
+          right: 0 !important;
+          width: 100% !important;
           margin: 0 !important;
-          border-radius: 1.5rem;
+          border-radius: 0;
           border-width: 1px;
           padding: 1.1rem 1rem !important;
         }
 
         .cosmic-sidebar nav {
-          max-height: min(65vh, 30rem);
+          max-height: calc(100vh - 11rem);
         }
 
         .sidebar-link {
@@ -312,16 +330,15 @@
 
       @media (max-width: 420px) {
         .cosmic-shell {
-          padding: 0.6rem 0.4rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+          padding: max(env(safe-area-inset-top, 0px), 0.35rem) 0 max(env(safe-area-inset-bottom, 0px), 0.65rem);
         }
 
         .cosmic-header {
-          margin-bottom: 0.6rem;
-          padding: 0.75rem 0.9rem !important;
+          padding: 0.75rem 0.95rem !important;
         }
 
-        .cosmic-main {
-          padding: 0.65rem !important;
+        .cosmic-main-inner {
+          padding: 0.9rem 0.95rem 1.25rem;
         }
 
         .credit-pill {
@@ -353,13 +370,13 @@
           padding: 0.65rem 0.75rem !important;
         }
 
-        .cosmic-main {
-          padding: 0.55rem !important;
+        .cosmic-main-inner {
+          padding: 0.8rem 0.85rem 1.15rem;
         }
 
         .cosmic-sidebar {
-          left: 0.5rem !important;
-          right: 0.5rem !important;
+          left: 0 !important;
+          right: 0 !important;
         }
 
         .nav-icon {
