@@ -65,7 +65,7 @@ const AgentSidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
       ></div>
       
       <aside
-        className={`relative w-72 flex-shrink-0 overflow-hidden border-r border-[rgba(130,160,255,0.25)] bg-[rgba(10,14,38,0.82)] p-5 shadow-[0_30px_60px_rgba(5,0,35,0.5)] backdrop-blur-2xl flex flex-col justify-between fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`cosmic-sidebar relative w-72 flex-shrink-0 overflow-hidden border-r border-[rgba(130,160,255,0.25)] bg-[rgba(10,14,38,0.82)] p-5 shadow-[0_30px_60px_rgba(5,0,35,0.5)] backdrop-blur-2xl flex flex-col justify-between fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(118,92,255,0.18),transparent_65%)]" />
         <div className="pointer-events-none absolute inset-0 opacity-35" style={{ backgroundImage: 'radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4) 0, transparent 55%), radial-gradient(1px 1px at 75% 25%, rgba(255,255,255,0.32) 0, transparent 55%), radial-gradient(1px 1px at 55% 80%, rgba(255,255,255,0.28) 0, transparent 55%)' }} />

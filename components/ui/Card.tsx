@@ -26,7 +26,7 @@ const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => {
 };
 
 export const CardHeader: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <div className={`border-b border-[rgba(120,150,255,0.2)] p-4 text-[var(--space-text-secondary)] ${className}`}>
+  <div className={`border-b border-[rgba(120,150,255,0.2)] p-3 sm:p-4 text-[var(--space-text-secondary)] ${className}`}>
     {children}
   </div>
 );
@@ -36,7 +36,7 @@ export const CardTitle: React.FC<{ children: React.ReactNode; className?: string
 );
 
 export const CardContent: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <div className={`p-4 text-[var(--space-text-secondary)] ${className}`}>
+  <div className={`p-3 sm:p-4 text-[var(--space-text-secondary)] ${className}`}>
     {children}
   </div>
 );

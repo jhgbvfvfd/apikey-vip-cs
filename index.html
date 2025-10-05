@@ -98,6 +98,13 @@
         color: var(--space-text-primary);
         position: relative;
         min-height: 100vh;
+        padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+      }
+
+      @supports (min-height: 100dvh) {
+        body {
+          min-height: 100dvh;
+        }
       }
 
       body::before,
@@ -188,6 +195,13 @@
 
       .cosmic-shell {
         background: transparent;
+        min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+      }
+
+      @supports (min-height: 100dvh) {
+        .cosmic-shell {
+          min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+        }
       }
 
       .cosmic-shell::before,
@@ -197,6 +211,51 @@
         inset: 0;
         pointer-events: none;
         z-index: -1;
+      }
+
+      @media (max-width: 640px) {
+        :root {
+          --space-bg: radial-gradient(circle at 15% 15%, rgba(94, 138, 255, 0.35), transparent 45%),
+            radial-gradient(circle at 85% 10%, rgba(255, 122, 210, 0.28), transparent 42%),
+            radial-gradient(circle at 45% 85%, rgba(48, 224, 255, 0.25), transparent 45%),
+            #050516;
+          --space-surface: rgba(20, 26, 70, 0.9);
+          --space-surface-strong: rgba(24, 32, 82, 0.96);
+          --space-border: rgba(146, 186, 255, 0.32);
+          --space-border-strong: rgba(170, 206, 255, 0.42);
+        }
+
+        body {
+          font-size: 15px;
+          background-size: 240% 240%;
+        }
+
+        body::before {
+          opacity: 0.55;
+        }
+
+        body::after {
+          opacity: 0.45;
+        }
+
+        .cosmic-shell {
+          padding: 0.75rem 0.5rem calc(1rem + env(safe-area-inset-bottom, 0px));
+        }
+
+        .cosmic-shell > div > header {
+          border-radius: 1.25rem;
+        }
+
+        .cosmic-sidebar {
+          width: min(100%, 20rem);
+          margin: 0 auto;
+          border-radius: 1.5rem;
+          border-width: 1px;
+        }
+
+        .cosmic-sidebar nav {
+          max-height: min(70vh, 32rem);
+        }
       }
 
       /* Override legacy light theme utility classes to keep contrast on the new dark surfaces */
