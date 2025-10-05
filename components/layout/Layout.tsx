@@ -113,16 +113,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <AdminSidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} /> :
             <AgentSidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
         }
-        <div className="relative flex flex-1 flex-col overflow-x-hidden">
-            <header className="relative z-10 flex flex-wrap items-center gap-3 border-b border-[rgba(120,150,255,0.25)] bg-[rgba(12,18,42,0.75)] px-3 py-2.5 shadow-[0_20px_45px_rgba(8,0,35,0.4)] backdrop-blur-xl sm:px-4 sm:py-3 md:flex-nowrap">
+        <div className="cosmic-content relative flex flex-1 min-h-0 flex-col overflow-x-hidden">
+            <header className="cosmic-header relative z-10 flex flex-wrap items-center gap-3 border-b border-[rgba(120,150,255,0.25)] bg-[rgba(12,18,42,0.75)] px-3 py-2.5 shadow-[0_20px_45px_rgba(8,0,35,0.4)] backdrop-blur-xl sm:px-4 sm:py-3 md:flex-nowrap">
                 <HamburgerIcon onClick={() => setIsSidebarOpen(true)} />
 
                 {agent && (
                     <div
-                        className="ml-0 flex w-full items-center justify-between gap-3 rounded-2xl border border-[rgba(138,176,255,0.35)] bg-[rgba(24,30,70,0.65)] px-4 py-2 text-[rgba(177,202,255,0.85)] shadow-[0_15px_30px_rgba(8,0,40,0.35)] transition hover:border-[rgba(150,190,255,0.55)] hover:text-white sm:ml-auto sm:w-auto sm:justify-start"
+                        className="credit-pill ml-0 flex w-full items-center justify-between gap-3 rounded-2xl border border-[rgba(138,176,255,0.35)] bg-[rgba(24,30,70,0.65)] px-4 py-2 text-[rgba(177,202,255,0.85)] shadow-[0_15px_30px_rgba(8,0,40,0.35)] transition hover:border-[rgba(150,190,255,0.55)] hover:text-white sm:ml-auto sm:w-auto sm:justify-start"
                         onClick={() => setHistoryModalOpen(true)}
                         >
-                        <div className="relative inline-flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[rgba(34,40,90,0.85)] text-[rgba(255,212,128,0.9)] shadow-[0_12px_25px_rgba(20,0,60,0.45)]">
+                        <div className="credit-pill__icon relative inline-flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[rgba(34,40,90,0.85)] text-[rgba(255,212,128,0.9)] shadow-[0_12px_25px_rgba(20,0,60,0.45)]">
                              <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,178,56,0.55),transparent_65%)]" />
                              <svg xmlns="http://www.w3.org/2000/svg" className="relative h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M8.433 7.418c.158-.103.346-.196.567-.267v1.698a2.5 2.5 0 00-1.162-.328zM11.567 7.151v-1.698c.22.071.409.164.567.267a2.5 2.5 0 00-1.134 1.431z" />
@@ -137,11 +137,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 )}
             </header>
             <main
-              className={`flex-1 overflow-y-auto overflow-x-hidden ${
+              className={`cosmic-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${
                 isConsoleView ? 'p-0' : 'p-2 sm:p-3 md:p-4'
               }`}
             >
-                <div className={`mx-auto w-full ${isConsoleView ? 'max-w-none' : 'max-w-4xl'} text-[var(--space-text-secondary)]`}
+                <div className={`cosmic-main-inner mx-auto w-full ${isConsoleView ? 'max-w-none' : 'max-w-4xl'} text-[var(--space-text-secondary)]`}
                 >
                     {children}
                 </div>

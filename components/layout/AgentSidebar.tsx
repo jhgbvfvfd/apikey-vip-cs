@@ -17,7 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const NavIcon: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <span className="relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-[rgba(26,32,72,0.82)] text-[rgba(188,210,255,0.85)] shadow-[0_10px_25px_rgba(10,0,40,0.35)]">
+    <span className="nav-icon relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-[rgba(26,32,72,0.82)] text-[rgba(188,210,255,0.85)] shadow-[0_10px_25px_rgba(10,0,40,0.35)]">
         <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(126,92,255,0.4),transparent_60%)]" />
         <span className="relative flex items-center justify-center">{children}</span>
     </span>
@@ -96,7 +96,7 @@ const AgentSidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                     to={link.to}
                     onClick={() => setIsOpen(false)}
                     className={({ isActive }) =>
-                      `group relative my-1 flex items-center gap-3 rounded-2xl border border-transparent px-3 py-3 font-medium transition-all duration-300 ${
+                      `sidebar-link group relative my-1 flex items-center gap-3 rounded-2xl border border-transparent px-3 py-3 font-medium transition-all duration-300 ${
                         isActive
                           ? 'border-[rgba(138,176,255,0.5)] bg-[rgba(42,52,105,0.75)] text-white shadow-[0_18px_35px_rgba(20,0,70,0.45)]'
                           : 'text-[rgba(177,202,255,0.75)] hover:border-[rgba(118,160,255,0.4)] hover:bg-[rgba(32,42,90,0.6)] hover:text-white'

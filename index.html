@@ -213,6 +213,24 @@
         z-index: -1;
       }
 
+      #root {
+        min-height: 100%;
+      }
+
+      .cosmic-content {
+        min-height: 0;
+      }
+
+      .cosmic-main {
+        scrollbar-gutter: stable both-edges;
+      }
+
+      @media (max-width: 768px) {
+        .cosmic-main-inner {
+          max-width: 100% !important;
+        }
+      }
+
       @media (max-width: 640px) {
         :root {
           --space-bg: radial-gradient(circle at 15% 15%, rgba(94, 138, 255, 0.35), transparent 45%),
@@ -242,19 +260,111 @@
           padding: 0.75rem 0.5rem calc(1rem + env(safe-area-inset-bottom, 0px));
         }
 
-        .cosmic-shell > div > header {
+        .cosmic-header {
           border-radius: 1.25rem;
+          margin: 0 auto 0.75rem;
+          padding: 0.85rem 1rem !important;
+        }
+
+        .cosmic-main {
+          padding: 0.85rem !important;
+        }
+
+        .credit-pill {
+          gap: 0.75rem !important;
+          padding: 0.65rem 0.85rem !important;
+        }
+
+        .credit-pill__icon {
+          height: 2.5rem !important;
+          width: 2.5rem !important;
         }
 
         .cosmic-sidebar {
-          width: min(100%, 20rem);
-          margin: 0 auto;
+          top: max(0.75rem, env(safe-area-inset-top, 0px)) !important;
+          bottom: max(0.75rem, env(safe-area-inset-bottom, 0px)) !important;
+          left: 0.75rem !important;
+          right: 0.75rem !important;
+          width: auto !important;
+          margin: 0 !important;
           border-radius: 1.5rem;
           border-width: 1px;
+          padding: 1.1rem 1rem !important;
         }
 
         .cosmic-sidebar nav {
-          max-height: min(70vh, 32rem);
+          max-height: min(65vh, 30rem);
+        }
+
+        .sidebar-link {
+          padding: 0.75rem 0.85rem !important;
+        }
+
+        .sidebar-link .text-sm {
+          font-size: 0.9rem !important;
+        }
+
+        .nav-icon {
+          height: 2.5rem !important;
+          width: 2.5rem !important;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .cosmic-shell {
+          padding: 0.6rem 0.4rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+        }
+
+        .cosmic-header {
+          margin-bottom: 0.6rem;
+          padding: 0.75rem 0.9rem !important;
+        }
+
+        .cosmic-main {
+          padding: 0.65rem !important;
+        }
+
+        .credit-pill {
+          padding: 0.55rem 0.75rem !important;
+        }
+
+        .credit-pill__icon {
+          height: 2.3rem !important;
+          width: 2.3rem !important;
+        }
+
+        .sidebar-link {
+          gap: 0.6rem !important;
+          padding: 0.65rem 0.75rem !important;
+        }
+
+        .sidebar-link .text-sm {
+          font-size: 0.85rem !important;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .cosmic-shell {
+          padding: 0.5rem 0.35rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+        }
+
+        .cosmic-header {
+          margin: 0 0.25rem 0.55rem;
+          padding: 0.65rem 0.75rem !important;
+        }
+
+        .cosmic-main {
+          padding: 0.55rem !important;
+        }
+
+        .cosmic-sidebar {
+          left: 0.5rem !important;
+          right: 0.5rem !important;
+        }
+
+        .nav-icon {
+          height: 2.15rem !important;
+          width: 2.15rem !important;
         }
       }
 
